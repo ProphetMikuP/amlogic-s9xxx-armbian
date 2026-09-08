@@ -1,8 +1,10 @@
 # Armbian Software Center
 
-According to user feedback and demands in the [Issue](https://github.com/ophub/amlogic-s9xxx-armbian/issues) section, common [software](../build-armbian/armbian-files/common-files/usr/share/ophub/armbian-software/software-list.conf) is gradually integrated to achieve one-click installation/update/uninstallation and other convenient operations. This includes `docker images`, `desktop software`, `application services`, etc.
+[English Instructions](#armbian-software-center) | [中文说明](#armbian-软件中心) | [日本語説明](#armbian-ソフトウェアセンター)
 
-## Software introduction
+Based on user feedback and requests in [Issues](https://github.com/ophub/amlogic-s9xxx-armbian/issues), commonly used [software](../build-armbian/armbian-files/common-files/usr/share/ophub/armbian-software/software-list.conf) has been gradually integrated to provide one-click install/update/uninstall operations. This includes `Docker images`, `desktop software`, `application services`, and more.
+
+## Software Introduction
 
 | ID | SoftwareName           | Home | DockerHub:Port | Software introduction                             |
 | --- | --------------------- | --------------------- | ---- | ------------------------------------------------- |
@@ -61,13 +63,13 @@ According to user feedback and demands in the [Issue](https://github.com/ophub/a
 
 ## Software Center Usage Guide
 
-Log into the Armbian system → Enter the command:
+Log in to the Armbian system and enter the command:
 
 ```shell
 armbian-software
 ```
 
-A list of integrated software shortcuts for installation/management will appear, such as:
+A list of integrated software with shortcut management options will appear, for example:
 
 ```shell
 root@armbian:~# armbian-software
@@ -83,12 +85,12 @@ ID    NAME                STATE           MANAGE
 [ OPTIONS ] Please Input Software ID:
 ```
 
-- `Uninstalled software`: The status shows `not-installed`, input the `ID` of the software to `install`.
-- `Installed software`: The status shows `installed`, input the `ID` of the software and choose to `update` or `remove` as prompted.
+- `Uninstalled software`: Status shows `not-installed`. Enter the software `ID` to install.
+- `Installed software`: Status shows `installed`. Enter the software `ID` and follow the prompts to `update` or `remove`.
 
 ## Software Center Development Guide
 
-The scripts/commands of the software center are stored in the [/usr/share/ophub/armbian-software](../build-armbian/armbian-files/common-files/usr/share/ophub/armbian-software) directory. You can use the `armbian-software -u` command to sync and download this directory to the local system, updating the local software center list. The files starting with a number are `one-click installation script` files for the corresponding software. [software-command.sh](../build-armbian/armbian-files/common-files/usr/share/ophub/armbian-software/software-command.sh) is a `unified instruction file` for installing/updating/removing software by commands. [software-list.conf](../build-armbian/armbian-files/common-files/usr/share/ophub/armbian-software/software-list.conf) is the software list configuration file, explained as follows:
+The software center scripts and commands are stored in the [/usr/share/ophub/armbian-software](../build-armbian/armbian-files/common-files/usr/share/ophub/armbian-software) directory. Use `armbian-software -u` to sync and download this directory to the local system, updating the software center list. Files prefixed with numbers are `one-click installation scripts` for the corresponding software. [software-command.sh](../build-armbian/armbian-files/common-files/usr/share/ophub/armbian-software/software-command.sh) is the `unified command file` for installing/updating/removing software. [software-list.conf](../build-armbian/armbian-files/common-files/usr/share/ophub/armbian-software/software-list.conf) is the software list configuration file, described as follows:
 
 ```yaml
 # 1.ID     2.Software Name     3.AuthMethod@Package      4.Execute Selection     5.Supported Release
@@ -99,25 +101,25 @@ The scripts/commands of the software center are stored in the [/usr/share/ophub/
 ...
 ```
 
-- `ID`: The `unique serial number` of the software.
-- `Software Name`: The `software name` (the name length is required to be less than 40 characters).
-- `AuthMethod@Package`: The `check method` for the installation status of the software and the corresponding `software package`, separated by the `@` symbol.
-  - For software installed with the `docker` container, check with the `docker` method, such as checking whether the `portainer` image is installed, check with `docker@portainer`.
-  - For software installed with the `apt` method, check with the `dpkg` method, such as checking whether the `firefox` software package is installed, check with `dpkg@firefox`.
-  - When there are executable files in the system's command directories (bin, sbin), use the `which` command to check for the existence of the binary command files. For instance, to verify the installation of the `frpc` service, use `which@frpc` to check.
-  - When there are no executable files in the system's command directories (bin, sbin), use the `find` command to check if a specific path exists. For example, to determine if the `ArozOS` system is installed, use `find@/root/arozos` to perform the check.
-- `Execute Selection`: Set the software to use a `unified instruction file` or an `independent script` for management.
-  - For `more streamlined` operation commands, they are collectively written in `command-docker.sh / command-desktop.sh / command-service.sh` files according to software classification, and named by software number. For example, the serial number of `portainer` is `102`, and its operation is written in `software_203()`.
-  - For operations that are `more complex and long in instructions`, they are managed by independent script files. For example, the independent script for installing `frpc` is named `302-frpc.sh` with the number as the prefix.
-- `Supported Release`: Set the supported Armbian `system version codename`. Use `all` to indicate support for all versions. If only certain versions are supported, specify the version codenames separated by `@` symbol.
+- `ID`: The software's `unique serial number`.
+- `Software Name`: The `software name` (must be fewer than 40 characters).
+- `AuthMethod@Package`: The `verification method` for checking installation status and the corresponding `software package`, separated by `@`.
+  - For Docker container images, use the `docker` method. Example: `docker@portainer` checks whether the `portainer` image is installed.
+  - For packages installed via `apt`, use the `dpkg` method. Example: `dpkg@firefox` checks whether the `firefox` package is installed.
+  - When executable files exist in system command directories (bin, sbin), use `which` to check for the binary. Example: `which@frpc` verifies the `frpc` service installation.
+  - When no executable files exist in system command directories, use `find` to check for a specific path. Example: `find@/root/arozos` checks whether the `ArozOS` system is installed.
+- `Execute Selection`: Specifies whether the software uses a `unified command file` or an `independent script` for management.
+  - For `simple` operations, commands are grouped by software category in `command-docker.sh / command-desktop.sh / command-service.sh` files, named by software serial number. For example, `portainer` (ID `102`) has its operations in `software_203()`.
+  - For `complex` operations with lengthy instructions, independent script files are used. For example, the `frpc` installation script is named `302-frpc.sh`, prefixed with its serial number.
+- `Supported Release`: Specifies the supported Armbian `system version codenames`. Use `all` to indicate support for all versions. For partial support, list the version codenames separated by `@`.
 
-We welcome everyone to contribute more software. Feel free to submit support requests in the [Issue](https://github.com/ophub/amlogic-s9xxx-armbian/issues).
+Contributions of additional software are welcome. Feel free to submit requests in [Issues](https://github.com/ophub/amlogic-s9xxx-armbian/issues).
 
 
 
 # Armbian 软件中心
 
-根据用户在 [Issue](https://github.com/ophub/amlogic-s9xxx-armbian/issues) 中的需求反馈，逐步整合常用[软件](../build-armbian/armbian-files/common-files/usr/share/ophub/armbian-software/software-list.conf)，实现一键安装/更新/卸载等快捷操作。包括 `docker 镜像`、`桌面软件`、`应用服务` 等。
+根据用户在 [Issues](https://github.com/ophub/amlogic-s9xxx-armbian/issues) 中的反馈需求，已逐步整合常用[软件](../build-armbian/armbian-files/common-files/usr/share/ophub/armbian-software/software-list.conf)，实现一键安装/更新/卸载等快捷操作。包括 `Docker 镜像`、`桌面软件`、`应用服务` 等。
 
 ## 软件介绍
 
@@ -178,13 +180,13 @@ We welcome everyone to contribute more software. Feel free to submit support req
 
 ## 软件中心使用说明
 
-登录 Armbian 系统 → 输入命令：
+登录 Armbian 系统后输入以下命令：
 
 ```shell
 armbian-software
 ```
 
-将出现当前已经集成的软件快捷安装/管理列表，如：
+将显示当前已整合的软件快捷管理列表，例如：
 
 ```shell
 root@armbian:~# armbian-software
@@ -200,12 +202,12 @@ ID    NAME                STATE           MANAGE
 [ OPTIONS ] Please Input Software ID:
 ```
 
-- `未安装的软件`：状态显示为 `not-installed`，输入软件对应的 `ID` 即可 `安装`。
-- `已安装的软件`：状态显示为 `installed`，输入软件对应的 `ID` ，根据提示选择 `更新` 或 `删除`。
+- `未安装的软件`：状态显示为 `not-installed`，输入软件对应的 `ID` 即可安装。
+- `已安装的软件`：状态显示为 `installed`，输入软件对应的 `ID`，根据提示选择更新或删除。
 
 ## 软件中心开发说明
 
-软件中心的脚本/命令集中存放在 [/usr/share/ophub/armbian-software](../build-armbian/armbian-files/common-files/usr/share/ophub/armbian-software) 目录下，使用 `armbian-software -u` 命令可以同步下载此目录至本地，更新本地的软件中心列表。其中以数字开头的文件是对应软件的 `一键安装脚本` 文件。[software-command.sh](../build-armbian/armbian-files/common-files/usr/share/ophub/armbian-software/software-command.sh) 是使用命令安装/更新/删除操作的`统一指令文件`。[software-list.conf](../build-armbian/armbian-files/common-files/usr/share/ophub/armbian-software/software-list.conf) 是软件列表配置文件，说明如下：
+软件中心的脚本和命令集中存放在 [/usr/share/ophub/armbian-software](../build-armbian/armbian-files/common-files/usr/share/ophub/armbian-software) 目录下。使用 `armbian-software -u` 命令可同步下载此目录至本地，更新本地软件中心列表。其中以数字开头的文件是对应软件的`一键安装脚本`。[software-command.sh](../build-armbian/armbian-files/common-files/usr/share/ophub/armbian-software/software-command.sh) 是用于安装/更新/删除操作的`统一指令文件`。[software-list.conf](../build-armbian/armbian-files/common-files/usr/share/ophub/armbian-software/software-list.conf) 是软件列表配置文件，说明如下：
 
 ```yaml
 # 1.ID     2.Software Name     3.AuthMethod@Package      4.Execute Selection     5.Supported Release
@@ -216,17 +218,134 @@ ID    NAME                STATE           MANAGE
 ...
 ```
 
-- `ID`: 软件的 `唯一序号` 。
-- `Software Name`：`软件名称`（名称长度要求小于 40 个字符）。
-- `AuthMethod@Package`：软件安装状态的`检查方法`，与对应的`软件包`，使用 `@` 符号分割。
-  - 使用 `docker` 容器安装的镜像，采用 `docker` 方式检查，如检查是否安装了 `portainer` 镜像，使用 `docker@portainer` 进行检查；
-  - 使用 `apt` 方式安装的软件包采用 `dpkg` 方式检查，如检查是否安装了 `firefox` 软件包，使用 `dpkg@firefox` 进行检查；
-  - 在系统命令目录 (bin,sbin) 有可执行文件时，采用 `which` 方式检查二进制命令文件是否存在，如检查是否安装了 `frpc` 服务，使用 `which@frpc` 进行检查。
-  - 在系统命令目录 (bin,sbin) 没有可执行文件时，采用 `find` 方式检查指定路径是否存在，如检查是否安装了 `arozos` 系统，使用 `find@/root/arozos` 进行检查。
-- `Execute Selection`：设置软件使用 `统一指令文件` 或 `独立脚本` 进行管理。
-  - 对于 `比较精简` 的操作命令，按照软件分类，集中写在 `command-docker.sh / command-desktop.sh / command-service.sh` 文件中，以软件序号进行命名。如 `portainer` 的序号是 `102`，他的操作写在 `software_203()` 中；
-  - 对于 `比较复杂、指令内容较长` 的操作，进行独立脚本文件管理。如安装 `frpc` 的独立脚本，以序号开头，命名为 `302-frpc.sh` 。
-- `Supported Release`：设置支持的 Armbian `系统版本代号`。全部版本都支持的使用 `all` 表示。仅本支持部分版本的填写版本代号，多个版本代号之间使用 `@` 符号连接。
+- `ID`: 软件的`唯一序号`。
+- `Software Name`：`软件名称`（名称长度需小于 40 个字符）。
+- `AuthMethod@Package`：软件安装状态的`检查方法`与对应的`软件包`，以 `@` 符号分隔。
+  - 通过 `docker` 容器安装的镜像，采用 `docker` 方式检查。例如：检查 `portainer` 镜像是否安装，使用 `docker@portainer`。
+  - 通过 `apt` 方式安装的软件包，采用 `dpkg` 方式检查。例如：检查 `firefox` 是否安装，使用 `dpkg@firefox`。
+  - 在系统命令目录 (bin, sbin) 存在可执行文件时，采用 `which` 方式检查。例如：检查 `frpc` 服务是否安装，使用 `which@frpc`。
+  - 在系统命令目录无可执行文件时，采用 `find` 方式检查指定路径是否存在。例如：检查 `arozos` 系统是否安装，使用 `find@/root/arozos`。
+- `Execute Selection`：设置软件使用`统一指令文件`或`独立脚本`进行管理。
+  - 对于操作命令`较为精简`的软件，按分类集中写在 `command-docker.sh / command-desktop.sh / command-service.sh` 文件中，以软件序号命名。例如 `portainer`（序号 `102`）的操作写在 `software_203()` 中。
+  - 对于操作`较为复杂、指令内容较长`的软件，采用独立脚本文件管理。例如 `frpc` 的安装脚本以序号开头，命名为 `302-frpc.sh`。
+- `Supported Release`：设置支持的 Armbian `系统版本代号`。全部版本都支持时使用 `all` 表示。仅支持部分版本时，填写版本代号，多个代号之间使用 `@` 符号连接。
 
-欢迎大家补充更多软件。欢迎在 [Issue](https://github.com/ophub/amlogic-s9xxx-armbian/issues) 中提交支持需求。
+欢迎大家补充更多软件。欢迎在 [Issues](https://github.com/ophub/amlogic-s9xxx-armbian/issues) 中提交支持需求。
+
+
+
+# Armbian ソフトウェアセンター
+
+ユーザーからの [Issues](https://github.com/ophub/amlogic-s9xxx-armbian/issues) でのフィードバックやリクエストに基づき、よく使われる[ソフトウェア](../build-armbian/armbian-files/common-files/usr/share/ophub/armbian-software/software-list.conf)を順次統合し、ワンクリックでのインストール/更新/アンインストールなどの操作を実現しています。`Docker イメージ`、`デスクトップソフトウェア`、`アプリケーションサービス`などが含まれます。
+
+## ソフトウェア紹介
+
+| ID | ソフトウェア名          | Home | DockerHub:Port | ソフトウェア紹介                                     |
+| --- | --------------------- | --------------------- | ---- | ------------------------------------------------- |
+| 101 | Docker                | [Home](https://www.docker.com/) | [Docker](https://docs.docker.com/engine/install/) | Docker はアプリケーションの開発、配布、実行のためのオープンプラットフォームです。 |
+| 102 | Portainer             | [Home](https://www.portainer.io/) | [Docker](https://hub.docker.com/r/portainer/portainer-ce) :9443 | 世界で最も人気のあるコンテナ管理プラットフォームです。 |
+| 103 | Yacht                 | [Home](https://yacht.sh/) | [Docker](https://hub.docker.com/r/selfhostedpro/yacht) :8001 | テンプレートとワンクリックデプロイに重点を置いたコンテナ管理 UI です。 |
+| 104 | Transmission          | [Home](https://transmissionbt.com/) | [Docker](https://github.com/linuxserver/docker-transmission) :9091 | Transmission はクロスプラットフォームの BitTorrent クライアントです。 |
+| 105 | qBittorrent           | [Home](https://www.qbittorrent.org/) | [Docker](https://hub.docker.com/r/linuxserver/qbittorrent) :8080 | qBittorrent は BitTorrent クライアントです。 |
+| 106 | NextCloud             | [Home](https://nextcloud.com/) | [Docker](https://hub.docker.com/r/arm64v8/nextcloud) :8088 | Nextcloud はオンプレミスのユニバーサルファイルアクセスと同期プラットフォームを提供し、強力なコラボレーション機能とデスクトップ、モバイル、Web インターフェースを備えています。 |
+| 107 | Jellyfin              | [Home](https://jellyfin.org/) | [Docker](https://hub.docker.com/r/linuxserver/jellyfin) :8096 | Jellyfin はフリーソフトウェアのメディアシステムで、メディアの管理とストリーミングを制御できます。 |
+| 108 | HomeAssistant         | [Home](https://www.home-assistant.io/) | [Docker](https://hub.docker.com/r/linuxserver/homeassistant) :8123 | Home Assistant は1000以上の異なるデバイスやサービスと統合し、強力な自動化機能を備えています。 |
+| 109 | Kodbox                | [Home](https://kodcloud.com/) | [Docker](https://hub.docker.com/r/kodcloud/kodbox) :8081 | プライベートクラウドのオンラインドキュメント管理ソリューションです。 |
+| 110 | CouchPotato           | [Home](https://couchpota.to/) | [Docker](https://hub.docker.com/r/linuxserver/couchpotato) :5050 | CouchPotato は自動 NZB および torrent ダウンローダーで、観たい映画を自動的に検索します。 |
+| 111 | Sonarr                | [Home](https://sonarr.tv/) | [Docker](https://hub.docker.com/r/linuxserver/sonarr) :8989 | Sonarr は Usenet および BitTorrent ユーザー向けの個人用ビデオレコーダーです。 |
+| 112 | Radarr                | [Home](https://radarr.video/) | [Docker](https://hub.docker.com/r/linuxserver/radarr) :7878 | Radarr は Usenet および BitTorrent ユーザー向けの映画コレクションマネージャーです。 |
+| 113 | Syncthing             | [Home](https://syncthing.net/) | [Docker](https://hub.docker.com/r/linuxserver/syncthing) :8384 | Syncthing は継続的なファイル同期プログラムです。 |
+| 114 | FileBrowser           | [Home](https://filebrowser.org/) | [Docker](https://hub.docker.com/r/filebrowser/filebrowser) :8002 | File Browser は指定ディレクトリ内でファイル管理インターフェースを提供し、ファイルのアップロード、削除、プレビュー、リネーム、編集が可能です。 |
+| 115 | Heimdall              | [Home](https://heimdall.site/) | [Docker](https://hub.docker.com/r/linuxserver/heimdall) :8003 | Heimdall は、よく使うウェブサイトやウェブアプリケーションへのリンクをシンプルに整理する方法です。 |
+| 116 | Node-RED              | [Home](https://nodered.org/) | [Docker](https://nodered.org/docs/getting-started/docker) :1880 | Node-RED はプログラミングツールです。ブラウザベースのエディターを提供し、パレット内の多様なノードを使ってフローを簡単に連結し、ワンクリックでデプロイ・実行できます。 |
+| 117 | Mosquitto             | [Home](https://www.mosquitto.org/) | [Docker](https://hub.docker.com/r/arm64v8/eclipse-mosquitto) :1883 | MQTT プロトコルはパブリッシュ/サブスクライブモデルによる軽量なメッセージングを提供します。Eclipse Mosquitto は MQTT プロトコルバージョン 5、3.1.1、3.1 のサーバーのオープンソース実装です。 |
+| 118 | OpenWrt               | [Home](https://www.openwrt.org/) | [Docker](https://hub.docker.com/r/ophub/openwrt-armv8) :80 | OpenWrt プロジェクトは組み込みデバイス向けの Linux オペレーティングシステムで、3000以上の標準化アプリケーションパッケージと非常に豊富なサードパーティプラグインをサポートしています。 |
+| 119 | Netdata               | [Home](https://learn.netdata.cloud/) | [Docker](https://hub.docker.com/r/netdata/netdata) :19999 | Netdata はシステムとアプリケーションのための分散型リアルタイムパフォーマンス・ヘルスモニタリングツールです。 |
+| 120 | XunLei                | [Home](https://github.com/cnk3x/xunlei) | [Docker](https://hub.docker.com/r/cnk3x/xunlei) :2345 | 迅雷 Synology スイートから抽出されたリモートダウンロードサービスプログラムです。 |
+| 121 | Docker-Headless       | [Home](https://github.com/infrastlabs/docker-headless) | [Docker](https://hub.docker.com/r/infrastlabs/docker-headless) :10081 | オーディオ/ロケール/IBus サポート付きのリモートデスクトップ。マルチデスクトップ（Gnome、Plasma、Mate、Xfce、Cinnamon）対応。 |
+| 122 | Navidrome             | [Home](https://www.navidrome.org/) | [Docker](https://hub.docker.com/r/deluan/navidrome) :4533  | Navidrome はセルフホスト型のオープンソース音楽サーバーおよびストリーマーです。任意のブラウザやモバイルデバイスから音楽コレクションを自由に楽しめます。 |
+| 123 | Openlist                 | [Home](https://www.oplist.org/) | [Docker](https://hub.docker.com/r/openlistteam/openlist) :5244  | 複数のストレージに対応するファイルリストプログラムで、Gin と Solidjs を使用しています。 |
+| 124 | QingLong              | [Home](https://github.com/whyour/qinglong) | [Docker](https://hub.docker.com/r/whyour/qinglong) :5700  | python3、javaScript、shell、typescript をサポートするスケジュールタスク管理パネルです。 |
+| 125 | ChatGPT-Next-Web      | [Home](https://github.com/Yidadaa/ChatGPT-Next-Web) | [Docker](https://hub.docker.com/r/yidadaa/chatgpt-next-web) :3000  | ワンクリックで無料デプロイできるクロスプラットフォーム対応のプライベート ChatGPT アプリケーションです。 |
+| 126 | N8N                   | [Home](https://n8n.io/) | [Docker](https://hub.docker.com/r/n8nio/n8n) :5678  | n8n はワークフロー自動化プラットフォームで、技術チームにノーコードの高効率な開発速度を提供します。400以上の統合、ネイティブ AI 機能を内蔵し、フェアコードライセンスを採用。強力な自動化フローを構築しながら、データとデプロイメントを完全に制御できます。 |
+| 201 | Desktop:GNOME         | [Home](https://www.gnome.org/) | -    | GNOME は集中型のデスクトップ作業環境を提供し、作業の完了を支援します。`デスクトップ`はモニターに接続して使用でき、[リモートデスクトップ](https://learn.microsoft.com/ja-jp/windows-server/remote/remote-desktop-services/clients/remote-desktop-clients)ソフトウェアを使用して接続することもできます。 |
+| 202 | Firefox               | [Home](https://www.mozilla.org/) | -    | 優れたウェブブラウザです。 |
+| 203 | VLC                   | [Home](https://www.videolan.org/) | -    | VLC は無料でオープンソースのクロスプラットフォームマルチメディアプレーヤー兼フレームワークで、ほとんどのマルチメディアファイルを再生できます。 |
+| 204 | MPV                   | [Home](https://mpv.io/) | -    | 無料でオープンソースのクロスプラットフォーム対応メディアプレーヤーです。 |
+| 205 | GIMP                  | [Home](https://www.gimp.org/) | -    | GIMP はクロスプラットフォームの画像エディターです。 |
+| 206 | Krita                 | [Home](https://krita.org/) | -    | Krita はプロフェッショナルな無料オープンソースのペインティングプログラムです。 |
+| 207 | LibreOffice           | [Home](https://www.libreoffice.org/) | -    | LibreOffice は無料で強力なオフィススイートです。洗練されたインターフェースと豊富な機能で、創造性を発揮し生産性を向上させます。 |
+| 208 | Shotcut               | [Home](https://shotcut.org/) | -    | Shotcut は無料でオープンソースのクロスプラットフォーム動画エディターです。 |
+| 209 | Kdenlive              | [Home](https://kdenlive.org/) | -    | Kdenlive は無料でオープンソースの動画エディターです。 |
+| 210 | Thunderbird           | [Home](https://www.thunderbird.net/) | -    | Thunderbird は速度、プライバシー、最新技術を組み合わせて、より良いメール体験を提供します。 |
+| 211 | Evolution             | [Home](https://github.com/GNOME/evolution) | -    | Evolution は統合されたメール、カレンダー、アドレス帳機能を提供する個人情報管理アプリケーションです。 |
+| 212 | Gwenview              | [Home](https://apps.kde.org/gwenview/) | -    | Gwenview は KDE 製の軽量で使いやすい画像ビューアーで、画像コレクションの閲覧・表示に最適です。 |
+| 213 | Eog                   | [Home](https://gitlab.gnome.org/GNOME/eog) | -    | Eye of GNOME（eog）は画像ビューアープログラムです。高速かつ機能的な画像ビューアーを目指しています。 |
+| 214 | VisualStudioCode      | [Home](https://code.visualstudio.com/) | -    | Visual Studio Code は軽量ながら強力なソースコードエディターです。 |
+| 215 | Gedit                 | [Home](https://github.com/GNOME/gedit) | -    | Gedit は GNOME デスクトップ環境向けのフル機能テキストエディターです。簡単なメモやドキュメントの作成に使用でき、高度な機能を活用して独自のソフトウェア開発環境としても使用できます。 |
+| 216 | Flameshot             | [Home](https://flameshot.org/) | -    | 強力でありながら使いやすいオープンソースのスクリーンショットソフトウェアです。 |
+| 301 | Frps                  | [Home](https://gofrp.org/) | -    | Frp は高速なリバースプロキシで、NAT やファイアウォールの背後にあるローカルサーバーをインターネットに公開できます。 |
+| 302 | Frpc                  | [Home](https://gofrp.org/) | -    | Frp はイントラネットペネトレーションに特化した高性能リバースプロキシアプリケーションで、TCP、UDP、HTTP、HTTPS などのプロトコルをサポートしています。 |
+| 303 | NPS                   | [Home](https://ehang-io.github.io/nps) | -    | NPS サーバー側。軽量で高性能、強力なイントラネットペネトレーションプロキシサーバーで、強力な Web 管理端末を備えています。 |
+| 304 | NPC                   | [Home](https://ehang-io.github.io/nps) | -    | NPC は NPS のクライアントです。 |
+| 305 | Plex                  | [Home](https://www.plex.tv/) | -    | 自分のサーバー上の個人メディアから、無料やオンデマンドの映画・番組、ライブ TV、ポッドキャスト、ウェブ番組、ストリーミング音楽まで、あらゆるデバイスの1つのアプリですべて楽しめます。 |
+| 306 | Emby-Server           | [Home](https://emby.media/) | -    | 個人メディアをクラウドに同期して、簡単にバックアップ、アーカイブ、変換できます。コンテンツを複数の解像度で保存し、あらゆるデバイスからの直接ストリーミングを実現します。 |
+| 307 | KVM                   | [Home](https://virt-manager.org/) | -    | KVM（カーネルベースの仮想マシン）は、仮想化拡張機能を含む Linux 向けの完全な仮想化ソリューションです。virt-manager は libvirt を介して仮想マシンを管理するデスクトップユーザーインターフェースです。主に KVM VM を対象としていますが、Xen と LXC（Linux コンテナ）も管理できます。KVM 仮想マシンには [OpenWrt](https://github.com/unifreq/openwrt_packit)、Debian、Ubuntu、OpenSUSE、ArchLinux、Centos、Gentoo、KyLin、UOS などをインストールできます。 |
+| 308 | PVE                   | [Home](https://github.com/pimox/pimox7) | https://IP:8006 | Proxmox 仮想環境は QEMU/KVM と LXC に基づくオープンソースのサーバー仮想化管理ソリューションです。統合されたウェブインターフェースまたは CLI で仮想マシン、コンテナ、高可用性クラスター、ストレージ、ネットワークを管理できます。 |
+| 309 | CasaOS                | [Home](https://github.com/IceWhaleTech/CasaOS) | http://IP | CasaOS はシンプルで使いやすく、エレガントなオープンソースのパーソナルクラウドシステムです。 |
+| 310 | ArozOS                | [Home](https://github.com/tobychui/arozos) | http://IP:8080 | ArozOS は低消費電力プラットフォームに適した Web ベースのデスクトップオペレーティングシステムです。ファイル/ディスク管理、ネットワーク統計、Web サーバーなどの機能を備えています。 |
+
+## ソフトウェアセンター使用方法
+
+Armbian システムにログインし、以下のコマンドを入力します：
+
+```shell
+armbian-software
+```
+
+統合済みソフトウェアのショートカット管理リストが表示されます。例：
+
+```shell
+root@armbian:~# armbian-software
+[ STEPS ] Start selecting software [ Current system: debian/bullseye ]...
+----------------------------------------------------------
+ID    NAME                STATE           MANAGE
+----------------------------------------------------------
+102   Portainer           installed       update/remove
+202   Firefox             installed       update/remove
+302   Frpc                not-installed   install
+...
+----------------------------------------------------------
+[ OPTIONS ] Please Input Software ID:
+```
+
+- `未インストールのソフトウェア`：ステータスが `not-installed` と表示されます。ソフトウェアの `ID` を入力するとインストールされます。
+- `インストール済みのソフトウェア`：ステータスが `installed` と表示されます。ソフトウェアの `ID` を入力し、プロンプトに従って更新または削除を選択します。
+
+## ソフトウェアセンター開発ガイド
+
+ソフトウェアセンターのスクリプトとコマンドは [/usr/share/ophub/armbian-software](../build-armbian/armbian-files/common-files/usr/share/ophub/armbian-software) ディレクトリに集中して保存されています。`armbian-software -u` コマンドでこのディレクトリをローカルに同期ダウンロードし、ソフトウェアセンターリストを更新できます。数字で始まるファイルは対応するソフトウェアの`ワンクリックインストールスクリプト`です。[software-command.sh](../build-armbian/armbian-files/common-files/usr/share/ophub/armbian-software/software-command.sh) はインストール/更新/削除操作のための`統一コマンドファイル`です。[software-list.conf](../build-armbian/armbian-files/common-files/usr/share/ophub/armbian-software/software-list.conf) はソフトウェアリスト設定ファイルで、説明は以下の通りです：
+
+```yaml
+# 1.ID     2.Software Name     3.AuthMethod@Package      4.Execute Selection     5.Supported Release
+102        :Portainer          :docker@portainer         :command-docker.sh      :all
+202        :Firefox            :dpkg@firefox             :command-desktop.sh     :all
+302        :Frpc               :which@frpc               :302-frpc.sh            :all
+308        :PVE                :dpkg@pve-manager         :command-service.sh     :bullseye@bookworm
+...
+```
+
+- `ID`：ソフトウェアの`一意のシリアル番号`。
+- `Software Name`：`ソフトウェア名`（名前の長さは40文字未満である必要があります）。
+- `AuthMethod@Package`：ソフトウェアのインストール状態の`検査方法`と対応する`ソフトウェアパッケージ`で、`@` 記号で区切ります。
+  - `docker` コンテナ経由でインストールされたイメージは `docker` 方式で検査します。例：`portainer` イメージがインストールされているか確認する場合、`docker@portainer` を使用します。
+  - `apt` 経由でインストールされたパッケージは `dpkg` 方式で検査します。例：`firefox` がインストールされているか確認する場合、`dpkg@firefox` を使用します。
+  - システムのコマンドディレクトリ (bin, sbin) に実行ファイルが存在する場合、`which` 方式で検査します。例：`frpc` サービスがインストールされているか確認する場合、`which@frpc` を使用します。
+  - システムのコマンドディレクトリに実行ファイルがない場合、`find` 方式で指定パスの存在を検査します。例：`arozos` システムがインストールされているか確認する場合、`find@/root/arozos` を使用します。
+- `Execute Selection`：ソフトウェアが`統一コマンドファイル`または`独立スクリプト`で管理されるかを設定します。
+  - `比較的シンプルな`操作のソフトウェアは、カテゴリ別に `command-docker.sh / command-desktop.sh / command-service.sh` ファイルに集約し、ソフトウェアシリアル番号で命名します。例えば `portainer`（シリアル番号 `102`）の操作は `software_203()` に記述されています。
+  - `比較的複雑で、コマンド内容が長い`ソフトウェアは、独立したスクリプトファイルで管理します。例えば `frpc` のインストールスクリプトはシリアル番号を先頭に付けて `302-frpc.sh` と命名します。
+- `Supported Release`：サポートされる Armbian `システムバージョンコードネーム`を設定します。すべてのバージョンをサポートする場合は `all` を使用します。一部のバージョンのみサポートする場合は、バージョンコードネームを記入し、複数のコードネームは `@` 記号で連結します。
+
+より多くのソフトウェアの追加を歓迎します。[Issues](https://github.com/ophub/amlogic-s9xxx-armbian/issues) でサポートリクエストを提出してください。
 

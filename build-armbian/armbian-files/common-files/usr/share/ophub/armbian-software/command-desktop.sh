@@ -8,7 +8,7 @@
 # This file is a part of the Rebuild Armbian
 # https://github.com/ophub/amlogic-s9xxx-armbian
 #
-# Function: Execute desktop software install/update/remove command
+# Function: Manage desktop software installation, update, and removal
 # Copyright (C) 2021- https://github.com/unifreq/openwrt_packit
 # Copyright (C) 2021- https://github.com/ophub/amlogic-s9xxx-armbian
 #
@@ -48,18 +48,18 @@ software_201() {
     case "${software_manage}" in
     install)
         # Add login desktop system user
-        echo -ne "${OPTIONS} Please input the login desktop system user(non-root): "
+        echo -ne "${OPTIONS} Please input the desktop login user (non-root): "
         read get_desktop_user
         if [[ -n "${get_desktop_user}" ]]; then
             sudo adduser ${get_desktop_user}
             sudo usermod -aG sudo ${get_desktop_user}
             echo -e "${INFO} Desktop user: [ ${get_desktop_user} ]"
         else
-            echo -e "${NOTE} You skipped adding the logged in desktop system user."
+            echo -e "${NOTE} Skipped adding a desktop login user."
         fi
 
-        # Remote desktop enable option
-        echo -ne "${OPTIONS} Is remote desktop enabled? Options: (y/n): "
+        # Remote desktop option
+        echo -ne "${OPTIONS} Enable remote desktop? (y/n): "
         read get_rd
         if [[ -n "${get_rd}" ]]; then
             get_rd="${get_rd,,,}"
@@ -67,7 +67,7 @@ software_201() {
         else
             get_rd="no"
         fi
-        echo -e "${INFO} Remote desktop enable option: [ ${get_rd} ]"
+        echo -e "${INFO} Remote desktop enabled: [ ${get_rd} ]"
 
         # Define display manager
         local display_manager="lightdm"
@@ -75,10 +75,10 @@ software_201() {
         local input_drivers="xserver-xorg-input-libinput xserver-xorg-input-evdev"
 
         if [[ "${VERSION_CODEID}" == "ubuntu" ]]; then
-            # Install ubuntu-desktop on Ubuntu (focal/jammy/lunar/mantic)
+            # Install ubuntu-desktop on Ubuntu (resolute/noble)
             software_install "ubuntu-desktop ${display_manager} ${input_drivers}"
         elif [[ "${VERSION_CODEID}" == "debian" ]]; then
-            # Install gnome on Debian (bullseye/bookworm/trixie)
+            # Install gnome on Debian (bookworm/trixie)
             software_install "gnome ${display_manager} ${input_drivers}"
         else
             error_msg "VERSION_CODEID not supported: [ ${VERSION_CODEID} ]"
@@ -114,23 +114,23 @@ EOF
         sudo bash ${software_path}/201-desktop-chinese-fonts.sh
 
         sync && sleep 3
-        echo -e "${SUCCESS} Desktop installation is successful, restarting..."
+        echo -e "${SUCCESS} Desktop installed successfully. Restarting..."
         reboot
         ;;
     update) software_update ;;
     remove)
         if [[ "${VERSION_CODEID}" == "ubuntu" ]]; then
-            # Remove ubuntu-desktop(gdm3) on Ubuntu (focal/jammy/lunar/mantic)
+            # Remove ubuntu-desktop(gdm3) on Ubuntu (resolute/noble)
             software_remove "ubuntu-desktop gdm3"
         elif [[ "${VERSION_CODEID}" == "debian" ]]; then
-            # Remove gnome(gdm3) on Debian (bullseye/bookworm/trixie)
+            # Remove gnome(gdm3) on Debian (bookworm/trixie)
             software_remove "gnome gdm3"
         else
             error_msg "VERSION_CODEID not supported: [ ${VERSION_CODEID} ]"
         fi
 
         sync && sleep 3
-        echo -e "${SUCCESS} Desktop removed successfully, restarting..."
+        echo -e "${SUCCESS} Desktop removed successfully. Restarting..."
         reboot
         ;;
     *) error_msg "Invalid input parameter: [ ${@} ]" ;;
@@ -142,7 +142,7 @@ software_202() {
     case "${software_manage}" in
     install)
         case "${VERSION_CODENAME}" in
-        jammy | lunar | mantic)
+        resolute | noble | jammy)
             sudo add-apt-repository ppa:mozillateam/ppa -y
             sudo apt-get update
             software_install "firefox-esr"
@@ -153,13 +153,13 @@ software_202() {
         bullseye | bookworm | trixie)
             software_install "firefox-esr"
             ;;
-        *) error_msg "unsupported system: [ ${VERSION_CODENAME} ]" ;;
+        *) error_msg "Unsupported system: [ ${VERSION_CODENAME} ]" ;;
         esac
         ;;
     update) software_update ;;
     remove)
         case "${VERSION_CODENAME}" in
-        jammy | lunar | mantic)
+        resolute | noble | jammy)
             software_remove "firefox-esr"
             sudo add-apt-repository --remove ppa:mozillateam/ppa -y
             ;;
@@ -169,7 +169,7 @@ software_202() {
         bullseye | bookworm | trixie)
             software_remove "firefox-esr"
             ;;
-        *) error_msg "unsupported system: [ ${VERSION_CODENAME} ]" ;;
+        *) error_msg "Unsupported system: [ ${VERSION_CODENAME} ]" ;;
         esac
         ;;
     *) error_msg "Invalid input parameter: [ ${@} ]" ;;
@@ -292,7 +292,7 @@ software_214() {
     install)
         tmp_download="$(mktemp -d)/code_arm64.deb"
         curl -L https://aka.ms/linux-arm64-deb >${tmp_download}
-        [[ "${?}" -eq "0" && -s "${tmp_download}" ]] || error_msg "Software download failed!"
+        [[ "${?}" -eq "0" && -s "${tmp_download}" ]] || error_msg "Failed to download the software!"
         sudo dpkg -i ${tmp_download}
         ;;
     update) software_update ;;

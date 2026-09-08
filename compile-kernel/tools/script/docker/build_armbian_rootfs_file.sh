@@ -12,7 +12,7 @@
 # Copyright (C) 2021- https://github.com/ophub/amlogic-s9xxx-armbian
 #
 # Optional parameters:
-# -v, --VERSION_CODENAME: Set the version codename of Armbian rootfs file, e.g., bookworm, jammy, etc.
+# -v, --VERSION_CODENAME: Set the version codename of Armbian rootfs file, e.g., bookworm, resolute, etc.
 # -s, --SSHD_CONFIG:      Enable or disable sshd_config file, default is false.
 # -c, --COMMAND_COLORS:   Enable or disable command colors, default is false.
 # -k, --COMPILE_KERNEL:   Add armbian-kernel and uInitrd generation script, default none.
@@ -28,7 +28,7 @@ build_path="${current_path}/build"
 image_path="${build_path}/output/images"
 cache_path="${build_path}/cache/rootfs"
 tmp_rootfs="${image_path}/tmp_rootfs"
-
+common_files="${current_path}/build-armbian/armbian-files/common-files"
 #
 # Set font color
 STEPS="[\033[95m STEPS \033[0m]"
@@ -46,7 +46,7 @@ error_msg() {
 }
 
 init_var() {
-    echo -e "${STEPS} Start Initializing Variables..."
+    echo -e "${STEPS} Initializing variables..."
 
     # If it is followed by [ : ], it means that the option requires a parameter value
     local options="v:s:c:k:p:"
@@ -111,7 +111,7 @@ init_var() {
 }
 
 redo_rootfs() {
-    echo -e "${STEPS} Start redoing Armbian [ ${version_codename} ] rootfs file..."
+    echo -e "${STEPS} Rebuilding Armbian [ ${version_codename} ] rootfs file..."
 
     # Searching for Armbian image
     image_file="$(basename $(ls ${image_path}/*.img 2>/dev/null | head -n 1))"
@@ -129,12 +129,12 @@ redo_rootfs() {
     # Create temporary directory
     mkdir -p ${tmp_rootfs}
     sudo chown root:root ${tmp_rootfs}
-    [[ "${?}" == "0" ]] && echo -e "${INFO} 01. Creating temporary directory completed." || error_msg "01. Failed to create directory!"
+    [[ "${?}" == "0" ]] && echo -e "${INFO} 01. Temporary directory created successfully." || error_msg "01. Failed to create directory!"
 
     # Redo Armbian rootfs
     if [[ -n "${rootfs_file}" ]]; then
         sudo tar -mxf ${rootfs_file} -C ${tmp_rootfs}/
-        [[ "${?}" == "0" ]] && echo -e "${INFO} 02. Unpacking Armbian rootfs completed." || error_msg "02. Failed to unpack rootfs file!"
+        [[ "${?}" == "0" ]] && echo -e "${INFO} 02. Armbian rootfs unpacked successfully." || error_msg "02. Failed to unpack rootfs file!"
 
         cd ${tmp_rootfs}/
 
@@ -147,14 +147,14 @@ redo_rootfs() {
                 sudo sed -i "s|^#*PermitRootLogin .*|PermitRootLogin yes|g" ${ssh_config}
                 sudo sed -i "s|^#*PasswordAuthentication .*|PasswordAuthentication yes|g" ${ssh_config}
                 [[ -d "var/run/sshd" ]] || sudo mkdir -p -m0755 var/run/sshd
-                echo -e "${INFO} 03.01 Adjusting sshd_config completed."
+                echo -e "${INFO} 03.01 sshd_config adjusted successfully."
             } || error_msg "03.01 Failed to adjust sshd_config!"
 
             # Set root password to 1234
             [[ -f "etc/shadow" ]] && {
                 rootnewpasswd="$(openssl passwd -6 "1234")"
                 sudo sed -i "s|^root:\*|root:${rootnewpasswd}|" etc/shadow
-                echo -e "${INFO} 03.02 Adjusting the default account completed."
+                echo -e "${INFO} 03.02 Default account adjusted successfully."
             } || error_msg "03.02 Failed to adjust root password!"
         else
             echo -e "${NOTE} 03. Skipping sshd_config adjustment."
@@ -191,7 +191,7 @@ if [ -f "$HOME/.bashrc" ]; then
 fi
 
 EOF
-                echo -e "${INFO} 04. Adjusting the default color completed."
+                echo -e "${INFO} 04. Default color scheme adjusted successfully."
             } || error_msg "04. Failed to adjust dircolors!"
         else
             echo -e "${NOTE} 04. Skipping sshd_config adjustment."
@@ -206,40 +206,71 @@ EOF
             [[ "${?}" == "0" ]] && {
                 sudo chmod +x ${add_script}
                 sudo chown root:root ${add_script}
-                echo -e "${INFO} 05.01. Adding armbian-kernel script completed."
+                echo -e "${INFO} 05.01. armbian-kernel script added successfully."
             } || error_msg "05.01. Failed to add armbian-kernel script!"
 
             # Add uInitrd generation script
             sudo mkdir -p etc/initramfs/post-update.d/
-            sudo chown root:root etc/initramfs/post-update.d/
-            sudo tee etc/initramfs/post-update.d/99-uboot >/dev/null <<'EOF'
-#!/bin/bash -e
-
-tempname="/boot/uInitrd-$1"
-echo "update-initramfs: Armbian: Converting to u-boot format: ${tempname}" >&2
-mkimage -A arm64 -O linux -T ramdisk -C gzip -n uInitrd -d $2 $tempname
-
-echo "update-initramfs: Armbian: Symlinking ${tempname} to /boot/uInitrd" >&2
-ln -sfv $(basename $tempname) /boot/uInitrd || {
-        echo "update-initramfs: Symlink failed, moving ${tempname} to /boot/uInitrd" >&2
-        mv -v $tempname /boot/uInitrd
-}
-
-echo "update-initramfs: Armbian: done." >&2
-
-exit 0
-
-EOF
+            sudo cp -f "${common_files}/etc/initramfs/post-update.d/99-uboot" etc/initramfs/post-update.d/99-uboot
+            [[ "${?}" == "0" ]] && echo -e "${INFO} 05.02. uInitrd generation script added successfully." || error_msg "05.02. Failed to adjust uInitrd!"
             sudo chmod +x etc/initramfs/post-update.d/99-uboot
-            [[ "${?}" == "0" ]] && echo -e "${INFO} 05.02. Adding uInitrd generation script completed." || error_msg "05.02. Failed to adjust uInitrd!"
+            sudo chown root:root etc/initramfs/post-update.d/99-uboot
         else
             echo -e "${NOTE} 05. Skipping armbian-kernel script addition."
         fi
 
-        # Compress the rootfs file
+        # 05.03. Add EDID initramfs hook
+        sudo mkdir -p etc/initramfs-tools/hooks/
+        sudo cp -f "${common_files}/etc/initramfs-tools/hooks/edid" etc/initramfs-tools/hooks/edid
+        [[ "${?}" == "0" ]] && echo -e "${INFO} 05.03. EDID initramfs hook added successfully." || error_msg "05.03. Failed to add EDID initramfs hook!"
+        sudo chmod +x etc/initramfs-tools/hooks/edid
+        sudo chown root:root etc/initramfs-tools/hooks/edid
+
+        # 05.04. Add EDID firmware blobs (bundled into the initramfs by the hook above)
+        edid_tmp="$(mktemp -d)"
+        git clone -q --depth 1 --filter=blob:none --sparse https://github.com/ophub/firmware "${edid_tmp}/fw" 2>/dev/null
+        git -C "${edid_tmp}/fw" sparse-checkout set firmware/edid >/dev/null 2>&1
+        [[ -d "${edid_tmp}/fw/firmware/edid" ]] && {
+            sudo mkdir -p usr/lib/firmware/edid
+            sudo cp -af "${edid_tmp}/fw/firmware/edid/." usr/lib/firmware/edid/
+            sudo chown -R root:root usr/lib/firmware/edid
+            echo -e "${INFO} 05.04. EDID firmware blobs added successfully."
+        } || error_msg "05.04. Failed to add EDID firmware blobs!"
+        rm -rf "${edid_tmp}"
+
+        # 06. Ensure the standard PATH block exists in /etc/profile.
+        # Some upstream rootfs ship an /etc/profile missing this section, which leaves root
+        # logins without /sbin & /usr/sbin in PATH (e.g. armbian-apt not found).
+        # Only prepend when the root sbin PATH is not already set (idempotent).
+        [[ -f "etc/profile" ]] && ! sudo grep -q 'PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"' etc/profile && {
+            new_profile="$(sudo awk '
+            BEGIN {
+                block = "# Set the standard PATH (root gets sbin, others get games)\n" \
+                        "if [ \"$(id -u)\" -eq 0 ]; then\n" \
+                        "  PATH=\"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"\n" \
+                        "else\n" \
+                        "  PATH=\"/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games\"\n" \
+                        "fi\n" \
+                        "export PATH\n"
+                inserted = 0
+            }
+            # After the 2nd header comment line, emit the block once
+            !inserted && /^# and Bourne compatible shells/ { print; printf "\n%s", block; inserted = 1; next }
+            { print }
+            END { if (!inserted) printf "%s", block }
+        ' etc/profile)" &&
+                [[ -n "${new_profile}" ]] &&
+                printf '%s\n' "${new_profile}" | sudo tee etc/profile.new >/dev/null &&
+                sudo chown root:root etc/profile.new &&
+                sudo chmod 644 etc/profile.new &&
+                sudo mv -f etc/profile.new etc/profile &&
+                echo -e "${INFO} 06. Added missing standard PATH block to /etc/profile."
+        }
+
+        # 07. Compress the rootfs file
         sudo tar -czf ${rootfs_save_name} *
         sudo mv -f ${rootfs_save_name} ../
-        [[ "${?}" == "0" ]] && echo -e "${INFO} 06. Making Armbian rootfs completed." || error_msg "06. Failed to redo rootfs!"
+        [[ "${?}" == "0" ]] && echo -e "${INFO} 07. Armbian rootfs created successfully." || error_msg "07. Failed to redo rootfs!"
     else
         error_msg "02. Failed to find rootfs file!"
     fi
@@ -249,27 +280,27 @@ EOF
         cd ${image_path}/
         mv -f ${image_file} ${image_save_name}
         pigz -qf *.img || gzip -qf *.img
-        [[ "${?}" == "0" ]] && echo -e "${INFO} 07. Renaming Armbian image completed." || error_msg "07. Failed to rename the image!"
+        [[ "${?}" == "0" ]] && echo -e "${INFO} 08. Armbian image renamed successfully." || error_msg "08. Failed to rename the image!"
     else
-        error_msg "07. Failed to find Armbian image!"
+        error_msg "08. Failed to find Armbian image!"
     fi
 
     # Clean up files in the image directory
     cd ${image_path}/
     sudo rm -rf $(ls . | grep -vE ".img.gz|.tar.gz" | xargs) 2>/dev/null
     #for file in *; do [[ ! -d "${file}" ]] && sha256sum "${file}" >"${file}.sha"; done
-    [[ "${?}" == "0" ]] && echo -e "${INFO} 08. The files in the current directory:\n$(ls -lh .)" || error_msg "08. Failed to clean up!"
+    [[ "${?}" == "0" ]] && echo -e "${INFO} 09. The files in the current directory:\n$(ls -lh .)" || error_msg "09. Failed to clean up!"
 
     # Delete Armbian build source codes and temporary files
     cd ${build_path}/
     sudo rm -rf $(ls . | grep -v "^output$" | xargs)
-    [[ "${?}" == "0" ]] && echo -e "${INFO} 09. Armbian source code cleanup completed." || error_msg "09. Failed to clean up!"
+    [[ "${?}" == "0" ]] && echo -e "${INFO} 10. Armbian source code cleaned up successfully." || error_msg "10. Failed to clean up!"
 
     cd ${current_path}/
     sync && sleep 3
 }
 
-echo -e "${STEPS} Start to redo the Armbian rootfs file."
+echo -e "${STEPS} Starting to rebuild the Armbian rootfs file..."
 echo -e "${INFO} Current path: [ ${current_path} ]"
 
 # Initialize variables
@@ -277,4 +308,4 @@ init_var "${@}"
 # Redo Armbian rootfs
 redo_rootfs
 
-echo -e "${SUCCESS} Armbian rootfs file redo completed."
+echo -e "${SUCCESS} Armbian rootfs file rebuilt successfully."

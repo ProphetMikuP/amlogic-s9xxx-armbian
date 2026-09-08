@@ -18,27 +18,32 @@
 #
 #================================= Functions list =================================
 #
-# error_msg          : Output error message
-# log_to_file        : Log kernel compilation output to a file
+# error_msg           : Output error message and exit
+# log_to_file         : Log kernel compilation output to a file
 #
-# init_var           : Initialize all variables
-# toolchain_check    : Check and install the toolchain
-# query_version      : Query the latest kernel version
-# apply_patch        : Apply custom kernel patches
-# get_kernel_source  : Get the kernel source code
-# get_kernel_config  : Get the kernel config files
+# init_var            : Initialize all variables
+# toolchain_check     : Check and install the toolchain
+# query_version       : Query the latest kernel version
+# apply_patch         : Apply custom kernel patches
+# get_kernel_source   : Get the kernel source code
+# get_kernel_config   : Get the kernel config files
 #
-# headers_install    : Deploy the kernel headers file
-# compile_env        : Set up the compile kernel environment
-# compile_dtbs       : Compile the dtbs
-# compile_kernel     : Compile the kernel
-# generate_uinitrd   : Generate initrd.img and uInitrd
-# packit_dtbs        : Packit dtbs files
-# packit_kernel      : Packit boot, modules and header files
-# compile_selection  : Choose to compile dtbs or all kernels
-# clean_tmp          : Clear temporary files
+# collect_headers     : Collect kernel headers for building modules
+# compile_env         : Set up the kernel compilation environment
+# compile_dtbs        : Compile the dtbs
+# compile_kernel      : Compile the kernel
+# generate_uinitrd    : Generate initrd.img and uInitrd
+# packit_dtbs         : Package dtbs files
+# packit_kernel       : Package boot, modules, and header files
+# create_debs_image   : Create deb packages for linux-image
+# create_debs_libc    : Create deb packages for linux-libc-dev
+# create_debs_headers : Create deb packages for linux-headers
+# create_debs_dtb     : Create deb packages for linux-dtb
+# create_debs         : Create all deb packages
+# compile_selection   : Choose to compile dtbs or all kernels
+# clean_tmp           : Clean up temporary files
 #
-# loop_recompile     : Loop to compile kernel
+# loop_recompile      : Loop to compile kernels
 #
 #========================= Set make environment variables =========================
 #
@@ -67,14 +72,15 @@ ophub_release_file="/etc/ophub-release"
 # Set the default for downloading kernel sources from github.com
 repo_owner="unifreq"
 repo_branch="main"
-build_kernel=("6.1.y" "6.12.y")
-all_kernel=("5.10.y" "5.15.y" "6.1.y" "6.6.y" "6.12.y")
+build_kernel=("6.12.y" "6.18.y")
+all_kernel=("5.10.y" "5.15.y" "6.1.y" "6.6.y" "6.12.y" "6.18.y")
 # Set whether to use the latest kernel, options: [ true / false ]
 auto_kernel="true"
 # Set whether to apply custom kernel patches, options: [ true / false ]
 auto_patch="false"
 # Set custom signature for the kernel
 custom_name="-ophub"
+pkg_maintainer="ophub <noreply@ophub.org>"
 # Set the kernel compile object, options: [ dtbs / all ]
 package_list="all"
 # Set the compression format, options: [ gzip / lzma / xz / zstd ]
@@ -100,7 +106,7 @@ config_download="false"
 # Compile toolchain download mirror, run on Armbian
 dev_repo="https://github.com/ophub/kernel/releases/download/dev"
 # Arm GNU Toolchain source: https://developer.arm.com/downloads/-/arm-gnu-toolchain-downloads
-gun_file="arm-gnu-toolchain-15.2.rel1-aarch64-aarch64-none-linux-gnu.tar.xz"
+gun_file="arm-gnu-toolchain-15.3.rel1-aarch64-aarch64-none-linux-gnu.tar.xz"
 # Set the toolchain path
 toolchain_path="/usr/local/toolchain"
 # Set the default cross-compilation toolchain: [ clang / gcc / gcc-14.2, etc. ]
@@ -142,7 +148,7 @@ log_to_file() {
 }
 
 init_var() {
-    echo -e "${STEPS} Start Initializing Variables..."
+    echo -e "${STEPS} Initializing variables..."
 
     # If it is followed by [ : ], it means that the option requires a parameter value
     local options="k:a:n:m:p:r:t:c:d:s:z:l:f:h:i:"
@@ -173,7 +179,7 @@ init_var() {
                 config_download="true"
                 shift 2
             else
-                error_msg "Invalid -g parameter [ ${2} ]!"
+                error_msg "Invalid -f parameter [ ${2} ]!"
             fi
             ;;
         -a | --AutoKernel)
@@ -187,6 +193,7 @@ init_var() {
         -n | --customName)
             if [[ -n "${2}" ]]; then
                 custom_name="${2// /}"
+                [[ -n "${custom_name}" ]] || custom_name="-ophub"
                 [[ "${custom_name:0:1}" != "-" ]] && custom_name="-${custom_name}"
                 shift 2
             else
@@ -285,6 +292,7 @@ init_var() {
     done
 
     # Receive the value entered by the [ -r ] parameter
+    # Example: owner/repo@branch, owner@branch, owner/repo, owner, etc.
     input_r_value="${repo_owner//https\:\/\/github\.com\//}"
     code_owner="$(echo "${input_r_value}" | awk -F '@' '{print $1}' | awk -F '/' '{print $1}')"
     code_repo="$(echo "${input_r_value}" | awk -F '@' '{print $1}' | awk -F '/' '{print $2}')"
@@ -310,7 +318,7 @@ init_var() {
 
 toolchain_check() {
     cd ${current_path}
-    echo -e "${STEPS} Start checking the toolchain for compiling the kernel..."
+    echo -e "${STEPS} Checking the toolchain for kernel compilation..."
 
     # Install dependencies
     sudo apt-get -qq update
@@ -329,7 +337,7 @@ toolchain_check() {
     [[ -d "/etc/apt/sources.list.d" ]] || mkdir -p /etc/apt/sources.list.d
     if [[ "${toolchain_name}" == "clang" ]]; then
         # Install LLVM
-        echo -e "${INFO} Start installing the LLVM toolchain..."
+        echo -e "${INFO} Installing the LLVM toolchain..."
         sudo apt-get -qq install -y lsb-release software-properties-common gnupg
         curl -fsSL https://apt.llvm.org/llvm.sh | sudo bash -s all
         [[ "${?}" -eq "0" ]] || error_msg "LLVM installation failed."
@@ -344,7 +352,7 @@ toolchain_check() {
         # Download Arm GNU Toolchain
         [[ -d "${toolchain_path}" ]] || mkdir -p ${toolchain_path}
         if [[ ! -d "${toolchain_path}/${gun_file//.tar.xz/}/bin" ]]; then
-            echo -e "${INFO} Start downloading the ARM GNU toolchain [ ${gun_file} ]..."
+            echo -e "${INFO} Downloading the ARM GNU toolchain [ ${gun_file} ]..."
 
             # Download the ARM GNU toolchain. If it fails, wait 1 minute and try again, try 10 times.
             for i in {1..10}; do
@@ -385,7 +393,7 @@ toolchain_check() {
 
 query_version() {
     cd ${current_path}
-    echo -e "${STEPS} Start querying the latest kernel version..."
+    echo -e "${STEPS} Querying the latest kernel version..."
 
     # Set empty array
     tmp_arr_kernels=()
@@ -401,8 +409,8 @@ query_version() {
         github_kernel_repo="${code_owner}/${linux_repo}/${code_branch}"
         github_kernel_ver="https://raw.githubusercontent.com/${github_kernel_repo}/Makefile"
         # latest_version="125"
-        latest_version="$(curl -s ${github_kernel_ver} | grep -oE "SUBLEVEL =.*" | head -n 1 | grep -oE '[0-9]{1,3}')"
-        if [[ "${?}" -eq "0" && -n "${latest_version}" ]]; then
+        latest_version="$(curl -fsSL -m 20 ${github_kernel_ver} 2>/dev/null | grep -oE "^SUBLEVEL = .*" | head -n 1 | grep -oE '[0-9]{1,3}')"
+        if [[ -n "${latest_version}" ]]; then
             tmp_arr_kernels[${i}]="${MAIN_LINE}.${latest_version}"
         else
             error_msg "Failed to query the kernel version in [ github.com/${github_kernel_repo} ]"
@@ -419,49 +427,54 @@ query_version() {
 
 apply_patch() {
     cd ${current_path}
-    echo -e "${STEPS} Start applying custom kernel patches..."
+    echo -e "${STEPS} Applying custom kernel patches..."
+
+    # Avoid iterating over a literal [ *.patch ] when no patch files are present.
+    shopt -s nullglob
 
     # Apply the common kernel patches
     if [[ -d "${kernel_patch_path}/common-kernel-patches" ]]; then
-        echo -e "${INFO} Copy common kernel patches..."
+        echo -e "${INFO} Copying common kernel patches..."
         rm -f ${kernel_path}/${local_kernel_path}/*.patch
-        cp -vf ${kernel_patch_path}/common-kernel-patches/*.patch -t ${kernel_path}/${local_kernel_path}
+        cp -vf ${kernel_patch_path}/common-kernel-patches/*.patch -t ${kernel_path}/${local_kernel_path} 2>/dev/null || true
 
         cd ${kernel_path}/${local_kernel_path}
         for file in *.patch; do
-            echo -e "${INFO} Apply kernel patch file: [ ${file} ]"
-            patch -p1 <"${file}"
+            echo -e "${INFO} Applying kernel patch file: [ ${file} ]"
+            patch -p1 <"${file}" || echo -e "${WARNING} Failed to apply the patch, skipping."
         done
         rm -f *.patch
     else
-        echo -e "${INFO} No common kernel patches, skipping."
+        echo -e "${INFO} No common kernel patches found, skipping."
     fi
 
     # Apply the dedicated kernel patches
     if [[ -d "${kernel_patch_path}/${local_kernel_path}" ]]; then
-        echo -e "${INFO} Copy [ ${local_kernel_path} ] version dedicated kernel patches..."
+        echo -e "${INFO} Copying [ ${local_kernel_path} ] version dedicated kernel patches..."
         rm -f ${kernel_path}/${local_kernel_path}/*.patch
-        cp -vf ${kernel_patch_path}/${local_kernel_path}/*.patch -t ${kernel_path}/${local_kernel_path}
+        cp -vf ${kernel_patch_path}/${local_kernel_path}/*.patch -t ${kernel_path}/${local_kernel_path} 2>/dev/null || true
 
         cd ${kernel_path}/${local_kernel_path}
         for file in *.patch; do
-            echo -e "${INFO} Apply kernel patch file: [ ${file} ]"
-            patch -p1 <"${file}"
+            echo -e "${INFO} Applying kernel patch file: [ ${file} ]"
+            patch -p1 <"${file}" || echo -e "${WARNING} Failed to apply the patch, skipping."
         done
         rm -f *.patch
     else
-        echo -e "${INFO} No [ ${local_kernel_path} ] version dedicated kernel patches, skipping."
+        echo -e "${INFO} No [ ${local_kernel_path} ] version dedicated kernel patches found, skipping."
     fi
+
+    shopt -u nullglob
 }
 
 get_kernel_source() {
     cd ${current_path}
-    echo -e "${STEPS} Start downloading the kernel source code..."
+    echo -e "${STEPS} Downloading the kernel source code..."
 
     [[ -d "${kernel_path}" ]] || mkdir -p ${kernel_path}
 
     if [[ ! -d "${kernel_path}/${local_kernel_path}" ]]; then
-        echo -e "${INFO} Start cloning from [ https://github.com/${server_kernel_repo} -b ${code_branch} ]"
+        echo -e "${INFO} Cloning from [ https://github.com/${server_kernel_repo} -b ${code_branch} ]"
 
         # Clone the latest kernel source code. If it fails, wait 1 minute and try again, try 10 times.
         for i in {1..10}; do
@@ -500,7 +513,7 @@ get_kernel_source() {
 }
 
 get_kernel_config() {
-    echo -e "${STEPS} Start downloading the kernel config files..."
+    echo -e "${STEPS} Downloading the kernel config files..."
 
     # Check if the kernel config file already exists
     if [[ -s "${config_path}/config-${kernel_verpatch}" && "${config_download}" == "false" ]]; then
@@ -520,11 +533,11 @@ get_kernel_config() {
     rm -rf ${config_path}/*
     cp -f ${tmp_path}/${kernel_config_path}/${config_flavor}/config-* ${config_path}/
     [[ "${?}" -eq 0 ]] || error_msg "Failed to copy the kernel config file."
-    echo -e "${INFO} Kernel config files [ ${config_flavor} ] downloaded to [ ${config_path} ] directory."
+    echo -e "${INFO} Kernel config files [ ${config_flavor} ] downloaded to [ ${config_path} ]."
     echo -e "${INFO} Config files: \n$(ls -lh ${config_path}/ 2>/dev/null)"
 }
 
-headers_install() {
+collect_headers() {
     cd ${kernel_path}/${local_kernel_path}
 
     # Set headers files list
@@ -560,18 +573,24 @@ headers_install() {
 
 compile_env() {
     cd ${current_path}
-    echo -e "${STEPS} Start checking local compilation environments."
+    echo -e "${STEPS} Checking local compilation environment..."
 
     # Get kernel output name
     kernel_outname="${kernel_version}${custom_name}"
     echo -e "${INFO} Compile kernel output name [ ${kernel_outname} ]. \n"
 
+    # Set package version and architecture
+    pkg_version="${kernel_version}"
+    pkg_arch="arm64"
+    pkg_revision="1"
+    deb_path="${output_path}/deb-${kernel_version}"
+
     # Create a temp directory
-    rm -rf ${output_path}/{boot/,dtb/,modules/,header/,${kernel_version}/}
-    mkdir -p ${output_path}/{boot/,dtb/{allwinner/,amlogic/,rockchip/},modules/,header/,${kernel_version}/}
+    rm -rf ${output_path}/{boot/,dtb/,modules/,header/,libc_headers/,${kernel_version}/,deb-${kernel_version}/} || true
+    mkdir -p ${output_path}/{boot/,dtb/{allwinner/,amlogic/,rockchip/},modules/,header/,libc_headers/,${kernel_version}/,deb-${kernel_version}/}
 
     cd ${kernel_path}/${local_kernel_path}
-    echo -e "${STEPS} Set compilation parameters."
+    echo -e "${STEPS} Setting compilation parameters..."
 
     # Show variable
     echo -e "${INFO} ARCH: [ ${SRC_ARCH} ]"
@@ -583,7 +602,7 @@ compile_env() {
     # Set generic make string
     MAKE_SET_STRING=" ARCH=${SRC_ARCH} CROSS_COMPILE=${CROSS_COMPILE} ${MFLAGS} LOCALVERSION=${LOCALVERSION} "
 
-    # Make clean/mrproper
+    # Make clean/mrproper (this always removes any existing .config)
     make ${MAKE_SET_STRING} CC="${CC}" LD="${LD}" mrproper
 
     # Clear ccache if enabled
@@ -592,14 +611,10 @@ compile_env() {
         ccache -C 2>/dev/null
     }
 
-    # Check .config file
-    if [[ ! -s ".config" ]]; then
-        [[ -s "${config_path}/config-${kernel_verpatch}" ]] || error_msg "Missing [ config-${kernel_verpatch} ] template!"
-        echo -e "${INFO} Copy [ ${config_path}/config-${kernel_verpatch} ] to [ .config ]"
-        cp -f ${config_path}/config-${kernel_verpatch} .config
-    else
-        echo -e "${INFO} Use the .config file in the current directory."
-    fi
+    # Install kernel config template (mrproper above always wipes the previous .config)
+    [[ -s "${config_path}/config-${kernel_verpatch}" ]] || error_msg "Missing [ config-${kernel_verpatch} ] template!"
+    echo -e "${INFO} Copy [ ${config_path}/config-${kernel_verpatch} ] to [ .config ]"
+    cp -f ${config_path}/config-${kernel_verpatch} .config
     # Clear kernel signature
     sed -i "s|CONFIG_LOCALVERSION=.*|CONFIG_LOCALVERSION=\"\"|" .config
 
@@ -616,7 +631,11 @@ compile_env() {
         # Add RUST support for version 6.1.y and later versions
         if [[ "${kernel_x}" -gt 6 ]] || [[ "${kernel_x}" -eq 6 && "${kernel_y}" -ge 1 ]]; then
             echo -e "${INFO} Kernel version [ ${kernel_version} ] requires RUST. Preparing the environment..."
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+            # Reuse the existing rustup installation across kernels and re-runs to avoid
+            # re-downloading the toolchain every time the loop iterates.
+            if [[ ! -x "${HOME}/.cargo/bin/rustup" ]]; then
+                curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+            fi
             export PATH="${HOME}/.cargo/bin:${PATH}"
 
             echo -e "${INFO} Setting Rust toolchain to version required by the kernel..."
@@ -626,9 +645,12 @@ compile_env() {
             rustup component add rust-src
 
             echo -e "${INFO} Installing correct bindgen version..."
-            cargo uninstall bindgen-cli bindgen >/dev/null 2>&1 || true
             BINDGEN_VERSION="$(scripts/min-tool-version.sh bindgen 2>/dev/null || echo "0.65.1")"
-            cargo install --locked --version "${BINDGEN_VERSION}" bindgen-cli 2>/dev/null || cargo install --locked --version "${BINDGEN_VERSION}" bindgen
+            installed_bindgen="$(bindgen --version 2>/dev/null | awk '{print $2}')"
+            if [[ "${installed_bindgen}" != "${BINDGEN_VERSION}" ]]; then
+                cargo uninstall bindgen-cli bindgen >/dev/null 2>&1 || true
+                cargo install --locked --version "${BINDGEN_VERSION}" bindgen-cli 2>/dev/null || cargo install --locked --version "${BINDGEN_VERSION}" bindgen
+            fi
 
             echo -e "${INFO} Rust environment is ready. Enabling RUST support in kernel config..."
             scripts/config -e RUST
@@ -650,9 +672,12 @@ compile_dtbs() {
     cd ${kernel_path}/${local_kernel_path}
 
     # Make dtbs
-    echo -e "${STEPS} Start compilation dtbs [ ${local_kernel_path} ]..."
-    make ${MAKE_SET_STRING} CC="${CC}" LD="${LD}" dtbs -j${PROCESS}
-    [[ "${?}" -eq "0" ]] && echo -e "${SUCCESS} The dtbs is compiled successfully."
+    echo -e "${STEPS} Compiling dtbs [ ${local_kernel_path} ]..."
+    if make ${MAKE_SET_STRING} CC="${CC}" LD="${LD}" dtbs -j${PROCESS}; then
+        echo -e "${SUCCESS} The dtbs compiled successfully."
+    else
+        error_msg "dtbs compilation failed."
+    fi
 }
 
 compile_kernel() {
@@ -662,30 +687,45 @@ compile_kernel() {
     [[ "${silent_log}" =~ ^(true|yes)$ ]] && silent_print="-s" || silent_print=""
 
     # Make kernel
-    echo -e "${STEPS} Start compilation kernel [ ${local_kernel_path} ]..."
+    echo -e "${STEPS} Compiling kernel [ ${local_kernel_path} ]..."
     make ${silent_print} ${MAKE_SET_STRING} CC="${CC}" LD="${LD}" Image modules dtbs -j${PROCESS}
     #make ${MAKE_SET_STRING} CC="${CC}" LD="${LD}" bindeb-pkg KDEB_COMPRESS=xz KBUILD_DEBARCH=arm64 -j${PROCESS}
-    [[ "${?}" -eq "0" ]] && echo -e "${SUCCESS} The kernel is compiled successfully." || error_msg "Kernel compilation failed."
+    [[ "${?}" -eq "0" ]] && echo -e "${SUCCESS} The kernel compiled successfully." || error_msg "Kernel compilation failed."
 
     # Install modules
-    echo -e "${STEPS} Install modules ..."
+    echo -e "${STEPS} Installing modules..."
     make ${silent_print} ${MAKE_SET_STRING} CC="${CC}" LD="${LD}" INSTALL_MOD_PATH=${output_path}/modules modules_install
-    [[ "${?}" -eq "0" ]] && echo -e "${SUCCESS} The modules is installed successfully." || error_msg "Modules installation failed."
+    [[ "${?}" -eq "0" ]] && echo -e "${SUCCESS} Modules installed successfully." || error_msg "Modules installation failed."
+
+    # Get the real kernel version from the installed modules, and adjust the kernel output name if necessary
+    real_kver="$(ls -1 ${output_path}/modules/lib/modules/ 2>/dev/null | head -n 1)"
+    if [[ -n "${real_kver}" && "${real_kver}" != "${kernel_outname}" ]]; then
+        echo -e "${INFO} Adjusting kernel output name from [ ${kernel_outname} ] to [ ${real_kver} ] (per modules_install)."
+        kernel_outname="${real_kver}"
+    fi
 
     # Strip debug information
     STRIP="${CROSS_COMPILE}strip"
-    find ${output_path}/modules -name "*.ko" -print0 | xargs -0 ${STRIP} --strip-debug 2>/dev/null
-    [[ "${?}" -eq "0" ]] && echo -e "${SUCCESS} The modules is stripped successfully." || echo -e "${WARNING} The modules stripping failed."
+    if find ${output_path}/modules -name "*.ko" -print0 | xargs -0 "${STRIP}" --strip-debug 2>/dev/null; then
+        echo -e "${SUCCESS} Modules stripped successfully."
+    else
+        echo -e "${WARNING} Modules stripping failed."
+    fi
 
-    # Install headers
-    echo -e "${STEPS} Install headers ..."
-    headers_install
-    [[ "${?}" -eq "0" ]] && echo -e "${SUCCESS} The headers is installed successfully." || error_msg "Headers installation failed."
+    # Collect kernel headers for building external modules
+    echo -e "${STEPS} Collecting kernel headers..."
+    collect_headers
+    [[ "${?}" -eq "0" ]] && echo -e "${SUCCESS} Kernel headers collected successfully." || error_msg "Kernel headers collection failed."
+
+    # Install libc headers (for linux-libc-dev package)
+    echo -e "${STEPS} Installing libc headers..."
+    make ${silent_print} ${MAKE_SET_STRING} CC="${CC}" LD="${LD}" INSTALL_HDR_PATH=${output_path}/libc_headers headers_install
+    [[ "${?}" -eq "0" ]] && echo -e "${SUCCESS} Libc headers installed successfully." || error_msg "Libc headers installation failed."
 }
 
 generate_uinitrd() {
     cd ${current_path}
-    echo -e "${STEPS} Generate uInitrd environment initialization..."
+    echo -e "${STEPS} Initializing uInitrd generation environment..."
 
     # Backup current system files for /boot
     echo -e "${INFO} Backup the files in the [ ${boot_backup_path} ] directory."
@@ -727,7 +767,7 @@ generate_uinitrd() {
     fi
 
     cd /boot
-    echo -e "${STEPS} Generate uInitrd file..."
+    echo -e "${STEPS} Generating uInitrd file..."
 
     # Enable update_initramfs
     [[ -f "${initramfs_conf}" ]] && sed -i "s|^update_initramfs=.*|update_initramfs=yes|g" ${initramfs_conf}
@@ -739,10 +779,10 @@ generate_uinitrd() {
     [[ -f "${initramfs_conf}" ]] && sed -i "s|^update_initramfs=.*|update_initramfs=no|g" ${initramfs_conf}
 
     if [[ -f "uInitrd" ]]; then
-        echo -e "${SUCCESS} The initrd.img and uInitrd file is Successfully generated."
+        echo -e "${SUCCESS} The initrd.img and uInitrd files generated successfully."
         [[ ! -L "uInitrd" ]] && mv -vf uInitrd uInitrd-${kernel_outname}
     else
-        echo -e "${WARNING} The initrd.img and uInitrd file not updated."
+        echo -e "${WARNING} The initrd.img and uInitrd files were not updated."
     fi
 
     echo -e "${INFO} File situation in the /boot directory after update: \n$(ls -hl *${kernel_outname})"
@@ -773,7 +813,7 @@ packit_dtbs() {
         }
         tar -czf dtb-allwinner-${kernel_outname}.tar.gz *
         mv -f *.tar.gz ${output_path}/${kernel_version}
-        echo -e "${SUCCESS} The [ dtb-allwinner-${kernel_outname}.tar.gz ] file is packaged."
+        echo -e "${SUCCESS} The [ dtb-allwinner-${kernel_outname}.tar.gz ] file packaged successfully."
     }
 
     cd ${output_path}/dtb/amlogic
@@ -785,7 +825,7 @@ packit_dtbs() {
         }
         tar -czf dtb-amlogic-${kernel_outname}.tar.gz *
         mv -f *.tar.gz ${output_path}/${kernel_version}
-        echo -e "${SUCCESS} The [ dtb-amlogic-${kernel_outname}.tar.gz ] file is packaged."
+        echo -e "${SUCCESS} The [ dtb-amlogic-${kernel_outname}.tar.gz ] file packaged successfully."
     }
 
     cd ${output_path}/dtb/rockchip
@@ -797,7 +837,7 @@ packit_dtbs() {
         }
         tar -czf dtb-rockchip-${kernel_outname}.tar.gz *
         mv -f *.tar.gz ${output_path}/${kernel_version}
-        echo -e "${SUCCESS} The [ dtb-rockchip-${kernel_outname}.tar.gz ] file is packaged."
+        echo -e "${SUCCESS} The [ dtb-rockchip-${kernel_outname}.tar.gz ] file packaged successfully."
     }
 }
 
@@ -810,17 +850,578 @@ packit_kernel() {
     chmod +x *
     tar -czf boot-${kernel_outname}.tar.gz *
     mv -f *.tar.gz ${output_path}/${kernel_version}
-    echo -e "${SUCCESS} The [ boot-${kernel_outname}.tar.gz ] file is packaged."
+    echo -e "${SUCCESS} The [ boot-${kernel_outname}.tar.gz ] file packaged successfully."
 
     cd ${output_path}/modules/lib/modules
     tar -czf modules-${kernel_outname}.tar.gz *
     mv -f *.tar.gz ${output_path}/${kernel_version}
-    echo -e "${SUCCESS} The [ modules-${kernel_outname}.tar.gz ] file is packaged."
+    echo -e "${SUCCESS} The [ modules-${kernel_outname}.tar.gz ] file packaged successfully."
 
     cd ${output_path}/header
     tar -czf header-${kernel_outname}.tar.gz *
     mv -f *.tar.gz ${output_path}/${kernel_version}
-    echo -e "${SUCCESS} The [ header-${kernel_outname}.tar.gz ] file is packaged."
+    echo -e "${SUCCESS} The [ header-${kernel_outname}.tar.gz ] file packaged successfully."
+}
+
+create_debs_image() {
+    cd ${output_path}
+
+    # 01. Create linux-image deb package (includes boot files and modules)
+    echo -e "${STEPS} Creating the [ linux-image ] deb packages..."
+
+    image_pkg="linux-image${custom_name}"
+    image_dir="${deb_path}/${image_pkg}"
+    mkdir -p ${image_dir}/{DEBIAN,boot,usr/lib/modules}
+
+    # Copy boot files
+    cp -rf ${output_path}/boot/* ${image_dir}/boot/
+    rm -f ${image_dir}/boot/*.tar.gz 2>/dev/null
+
+    # Copy modules files
+    cp -rf ${output_path}/modules/lib/modules/${kernel_outname} ${image_dir}/usr/lib/modules/
+    rm -f ${image_dir}/usr/lib/modules/${kernel_outname}/{build,source} 2>/dev/null
+
+    # Generate boot file list for preinst
+    boot_file_list="$(cd ${image_dir} && find boot -type f | sort)"
+
+    # Create copyright file
+    mkdir -p ${image_dir}/usr/share/doc/${image_pkg}
+    cat >${image_dir}/usr/share/doc/${image_pkg}/copyright <<EOF
+This is the Linux kernel image, modules and boot files.
+
+The Linux kernel is licensed under the GPL v2 license.
+See /usr/share/common-licenses/GPL-2 for the full license text.
+
+Copyright: Linux kernel contributors
+Maintainer: ${pkg_maintainer}
+EOF
+
+    # Calculate installed size (in KB)
+    image_size=$(du -sk ${image_dir} | cut -f1)
+
+    # Create control file for linux-image package
+    cat >${image_dir}/DEBIAN/control <<EOF
+Package: ${image_pkg}
+Version: ${pkg_version}-${pkg_revision}${custom_name}
+Architecture: ${pkg_arch}
+Maintainer: ${pkg_maintainer}
+Installed-Size: ${image_size}
+Provides: linux-image
+Conflicts: linux-image
+Replaces: linux-image
+Section: kernel
+Priority: optional
+Description: Linux kernel image ${kernel_outname}
+ Kernel image and modules for ${kernel_outname}
+ This package contains vmlinuz, config, System.map, uInitrd and kernel modules.
+EOF
+
+    # Create preinst script to remove boot files and modules before install
+    cat >${image_dir}/DEBIAN/preinst <<EOF
+#!/bin/bash
+set -e
+
+# Remove only boot files that will be overwritten by this package
+while IFS= read -r f; do
+    [[ -n "\${f}" ]] && rm -f "/\${f}" 2>/dev/null || true
+done <<'BOOT_LIST'
+${boot_file_list}
+BOOT_LIST
+
+# Remove old modules files that will be overwritten by this package
+for d in /usr/lib/modules/*; do
+    if [[ -d "\${d}" ]]; then
+        rm -f "\${d}/build" "\${d}/source" 2>/dev/null || true
+        rm -f "\${d}"/modules.* 2>/dev/null || true
+    fi
+done
+
+# Cleaning up beforehand ensures a fresh unpack with no leftover files.
+rm -rf /usr/lib/modules/${kernel_outname} 2>/dev/null || true
+
+exit 0
+EOF
+    chmod 755 ${image_dir}/DEBIAN/preinst
+
+    # Create prerm script to remove modules before uninstall
+    cat >${image_dir}/DEBIAN/prerm <<EOF
+#!/bin/bash
+set -e
+
+# Only clean modules files on remove/purge, NOT during upgrade
+case "\${1}" in
+    remove|purge)
+        rm -rf /usr/lib/modules/${kernel_outname}/modules.* 2>/dev/null || true
+        ;;
+esac
+exit 0
+EOF
+    chmod 755 ${image_dir}/DEBIAN/prerm
+
+    # Create postrm script to remove modules after uninstall
+    cat >${image_dir}/DEBIAN/postrm <<EOF
+#!/bin/bash
+set -e
+
+# Only remove modules on remove/purge, NOT during upgrade
+case "\${1}" in
+    remove|purge)
+        rm -rf /usr/lib/modules/${kernel_outname} 2>/dev/null || true
+        ;;
+esac
+exit 0
+EOF
+    chmod 755 ${image_dir}/DEBIAN/postrm
+
+    # Create postinst script for linux-image- package
+    cat >${image_dir}/DEBIAN/postinst <<'POSTINST'
+#!/bin/bash
+set -e
+
+# Read platform info from ophub-release
+ophub_release_file="/etc/ophub-release"
+if [[ -f "${ophub_release_file}" ]]; then
+    source "${ophub_release_file}"
+fi
+
+cd /boot
+
+# Handle kernel image based on platform
+if [[ -f vmlinuz-KERNEL_NAME ]]; then
+    case "${PLATFORM}" in
+    amlogic)
+        [[ -f zImage ]] && rm -f zImage
+        cp -f vmlinuz-KERNEL_NAME zImage
+        ;;
+    rockchip)
+        [[ -f Image ]] && rm -f Image
+        ln -sf vmlinuz-KERNEL_NAME Image
+        ;;
+    allwinner)
+        [[ -f Image ]] && rm -f Image
+        cp -f vmlinuz-KERNEL_NAME Image
+        ;;
+    *)
+        # Default: Copy to both Image and zImage for compatibility
+        [[ -f Image ]] && rm -f Image
+        [[ -f zImage ]] && rm -f zImage
+        cp -f vmlinuz-KERNEL_NAME Image
+        cp -f vmlinuz-KERNEL_NAME zImage
+        ;;
+    esac
+fi
+
+# Run depmod to generate modules.dep and map files
+depmod -a KERNEL_NAME 2>/dev/null || true
+
+# Generate initrd.img and uInitrd if not exist
+if [[ ! -f /boot/initrd.img-KERNEL_NAME || ! -f /boot/uInitrd-KERNEL_NAME ]]; then
+    echo "initrd.img-KERNEL_NAME or uInitrd-KERNEL_NAME not found, generating with update-initramfs..."
+    if command -v update-initramfs >/dev/null 2>&1; then
+        initramfs_conf="/etc/initramfs-tools/update-initramfs.conf"
+        [[ -f "${initramfs_conf}" ]] && sed -i "s|^update_initramfs=.*|update_initramfs=yes|g" "${initramfs_conf}"
+
+        update-initramfs -c -k KERNEL_NAME
+
+        [[ -f "${initramfs_conf}" ]] && sed -i "s|^update_initramfs=.*|update_initramfs=no|g" "${initramfs_conf}"
+    else
+        echo "WARNING: update-initramfs not found, system may not boot correctly!"
+    fi
+fi
+
+# Handle uInitrd based on platform and model
+if [[ "${MODEL_ID}" =~ ^(r306|r307)$ ]]; then
+    # Special handling for MODEL_ID r306 and r307
+    [[ -f initrd.img-KERNEL_NAME ]] && {
+        [[ -f uInitrd ]] && rm -f uInitrd
+        ln -sf initrd.img-KERNEL_NAME uInitrd
+    }
+elif [[ -f uInitrd-KERNEL_NAME ]]; then
+    [[ -f uInitrd ]] && rm -f uInitrd
+    case "${PLATFORM}" in
+    amlogic|allwinner)
+        cp -f uInitrd-KERNEL_NAME uInitrd
+        ;;
+    rockchip)
+        ln -sf uInitrd-KERNEL_NAME uInitrd
+        ;;
+    *)
+        cp -f uInitrd-KERNEL_NAME uInitrd
+        ;;
+    esac
+fi
+
+# Clean up old kernels (keep only the newly installed kernel)
+# This matches armbian-update behavior
+CURRENT_KERNEL="KERNEL_NAME"
+
+# Clean old boot files (config, initrd.img, System.map, uInitrd, vmlinuz)
+for f in /boot/config-* /boot/initrd.img-* /boot/System.map-* /boot/uInitrd-* /boot/vmlinuz-*; do
+    [[ -f "${f}" ]] || continue
+    [[ "${f}" == *"${CURRENT_KERNEL}"* ]] && continue
+    rm -f "${f}" 2>/dev/null || true
+done
+
+# Clean old modules directories
+for d in /usr/lib/modules/*; do
+    [[ -d "${d}" ]] || continue
+    [[ "${d}" == *"${CURRENT_KERNEL}"* ]] && continue
+    rm -rf "${d}" 2>/dev/null || true
+done
+
+# Remove old linux-image packages from dpkg database (background, wait for dpkg lock release)
+(
+    # Wait for the parent dpkg process to release BOTH the dpkg lock and the apt frontend lock
+    while fuser /var/lib/dpkg/lock >/dev/null 2>&1 \
+       || fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do sleep 3; done
+    for pkg in $(dpkg-query -W -f='${Package}\n' 2>/dev/null | grep -E "^linux-image-"); do
+        [[ "${pkg}" == "CURRENT_IMAGE_PKG" ]] && continue
+        dpkg --purge --force-depends "${pkg}" 2>/dev/null || true
+    done
+) &
+
+exit 0
+POSTINST
+    sed -i "s|KERNEL_NAME|${kernel_outname}|g" ${image_dir}/DEBIAN/postinst
+    sed -i "s|CURRENT_IMAGE_PKG|${image_pkg}|g" ${image_dir}/DEBIAN/postinst
+    chmod 755 ${image_dir}/DEBIAN/postinst
+
+    # Build the deb package (include version in filename since package name has no version)
+    image_deb="linux-image_${pkg_version}-${pkg_revision}${custom_name}_${pkg_arch}.deb"
+    dpkg-deb -Zxz --build ${image_dir} ${deb_path}/${image_deb} >/dev/null
+    [[ "${?}" -eq "0" ]] && echo -e "${SUCCESS} The [ ${image_deb} ] file packaged successfully."
+}
+
+create_debs_libc() {
+    cd ${output_path}
+
+    # 02. Create linux-libc-dev deb package
+    echo -e "${STEPS} Creating the [ linux-libc-dev ] deb packages..."
+
+    libc_pkg="linux-libc-dev${custom_name}"
+    libc_dir="${deb_path}/${libc_pkg}"
+    mkdir -p ${libc_dir}/{DEBIAN,usr/include}
+
+    # Copy libc headers and organize for aarch64
+    cp -rf ${output_path}/libc_headers/include/* ${libc_dir}/usr/include/
+
+    # Move arch-specific asm headers to aarch64-linux-gnu directory
+    if [[ -d "${libc_dir}/usr/include/asm" ]]; then
+        mkdir -p ${libc_dir}/usr/include/aarch64-linux-gnu
+        mv ${libc_dir}/usr/include/asm ${libc_dir}/usr/include/aarch64-linux-gnu/
+    fi
+
+    # Create copyright file
+    mkdir -p ${libc_dir}/usr/share/doc/${libc_pkg}
+    cat >${libc_dir}/usr/share/doc/${libc_pkg}/copyright <<EOF
+This is the Linux kernel headers for libc development.
+
+The Linux kernel is licensed under the GPL v2 license.
+See /usr/share/common-licenses/GPL-2 for the full license text.
+
+Copyright: Linux kernel contributors
+Maintainer: ${pkg_maintainer}
+EOF
+
+    # Calculate installed size
+    libc_size=$(du -sk ${libc_dir} | cut -f1)
+
+    # Create control file for linux-libc-dev package
+    cat >${libc_dir}/DEBIAN/control <<EOF
+Package: ${libc_pkg}
+Version: ${pkg_version}-${pkg_revision}${custom_name}
+Architecture: ${pkg_arch}
+Maintainer: ${pkg_maintainer}
+Installed-Size: ${libc_size}
+Provides: linux-libc-dev
+Conflicts: linux-libc-dev
+Replaces: linux-libc-dev
+Section: kernel
+Priority: optional
+Multi-Arch: same
+Description: Linux Kernel Headers for development ${kernel_outname}
+ This package provides headers from the Linux kernel for use by
+ glibc and other userspace libraries and programs.
+EOF
+
+    # Create preinst script to remove old linux-libc-dev packages before install
+    cat >${libc_dir}/DEBIAN/preinst <<EOF
+#!/bin/bash
+set -e
+
+exit 0
+EOF
+    chmod 755 ${libc_dir}/DEBIAN/preinst
+
+    # Create postinst script to clean old linux-libc-dev packages
+    cat >${libc_dir}/DEBIAN/postinst <<'POSTINST'
+#!/bin/bash
+set -e
+
+# Remove old linux-libc-dev packages
+(
+    # Wait for the parent dpkg process to release BOTH the dpkg lock and the apt frontend lock
+    while fuser /var/lib/dpkg/lock >/dev/null 2>&1 \
+       || fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do sleep 3; done
+    for pkg in $(dpkg-query -W -f='${Package}\n' 2>/dev/null | grep -E '^linux-libc-dev-'); do
+        [[ "${pkg}" == "CURRENT_LIBC_PKG" ]] && continue
+        dpkg --purge --force-depends "${pkg}" 2>/dev/null || true
+    done
+) &
+
+exit 0
+POSTINST
+    sed -i "s|CURRENT_LIBC_PKG|${libc_pkg}|g" ${libc_dir}/DEBIAN/postinst
+    chmod 755 ${libc_dir}/DEBIAN/postinst
+
+    # Build the deb package (include version in filename since package name has no version)
+    libc_deb="linux-libc-dev_${pkg_version}-${pkg_revision}${custom_name}_${pkg_arch}.deb"
+    dpkg-deb -Zxz --build ${libc_dir} ${deb_path}/${libc_deb} >/dev/null
+    [[ "${?}" -eq "0" ]] && echo -e "${SUCCESS} The [ ${libc_deb} ] file packaged successfully."
+}
+
+create_debs_headers() {
+    cd ${output_path}
+
+    # 03. Create linux-headers deb package
+    echo -e "${STEPS} Creating the [ linux-headers ] deb packages..."
+
+    headers_pkg="linux-headers${custom_name}"
+    headers_dir="${deb_path}/${headers_pkg}"
+    mkdir -p ${headers_dir}/{DEBIAN,usr/src}
+
+    # Copy header files
+    cp -rf ${output_path}/header ${headers_dir}/usr/src/linux-headers-${kernel_outname}
+
+    # Create copyright file
+    mkdir -p ${headers_dir}/usr/share/doc/${headers_pkg}
+    cat >${headers_dir}/usr/share/doc/${headers_pkg}/copyright <<EOF
+This is the Linux kernel headers for building external modules.
+
+The Linux kernel is licensed under the GPL v2 license.
+See /usr/share/common-licenses/GPL-2 for the full license text.
+
+Copyright: Linux kernel contributors
+Maintainer: ${pkg_maintainer}
+EOF
+
+    # Calculate installed size
+    headers_size=$(du -sk ${headers_dir} | cut -f1)
+
+    # Create control file for linux-headers package
+    {
+        cat <<EOF
+Package: ${headers_pkg}
+Version: ${pkg_version}-${pkg_revision}${custom_name}
+Architecture: ${pkg_arch}
+Maintainer: ${pkg_maintainer}
+Installed-Size: ${headers_size}
+Depends: ${image_pkg}
+Provides: linux-headers
+Conflicts: linux-headers
+Replaces: linux-headers
+Section: kernel
+Priority: optional
+Description: Linux kernel headers ${kernel_outname}
+ Header files for building modules for Linux kernel ${kernel_outname}
+EOF
+    } >${headers_dir}/DEBIAN/control
+
+    # Create preinst script to remove old linux-headers files before install
+    cat >${headers_dir}/DEBIAN/preinst <<'PREINST'
+#!/bin/bash
+set -e
+exit 0
+PREINST
+    chmod 755 ${headers_dir}/DEBIAN/preinst
+
+    # Create prerm script to remove build and source symlinks before uninstall
+    cat >${headers_dir}/DEBIAN/prerm <<EOF
+#!/bin/bash
+set -e
+
+# Only remove symlinks on remove/purge, NOT during upgrade
+case "\${1}" in
+    remove|purge)
+        rm -rf /usr/lib/modules/${kernel_outname}/{build,source} 2>/dev/null || true
+        ;;
+esac
+exit 0
+EOF
+    chmod 755 ${headers_dir}/DEBIAN/prerm
+
+    # Create postrm script to remove header files after uninstall
+    cat >${headers_dir}/DEBIAN/postrm <<EOF
+#!/bin/bash
+set -e
+
+# Only remove headers on remove/purge, NOT during upgrade
+case "\${1}" in
+    remove|purge)
+        rm -rf /usr/src/linux-headers-${kernel_outname} 2>/dev/null || true
+        ;;
+esac
+exit 0
+EOF
+    chmod 755 ${headers_dir}/DEBIAN/postrm
+
+    # Create postinst script to create build symlink and clean old headers
+    cat >${headers_dir}/DEBIAN/postinst <<'POSTINST'
+#!/bin/bash
+set -e
+CURRENT_KERNEL="KERNEL_NAME"
+
+# Ensure build symlink exists in modules directory
+if [[ -d /usr/lib/modules/${CURRENT_KERNEL} ]]; then
+    cd /usr/lib/modules/${CURRENT_KERNEL}
+    [[ -L build ]] || ln -sf /usr/src/linux-headers-${CURRENT_KERNEL} build
+fi
+
+# Clean old kernel headers directories
+for d in /usr/src/linux-headers-*; do
+    [[ -d "${d}" ]] || continue
+    [[ "${d}" == *"${CURRENT_KERNEL}"* ]] && continue
+    rm -rf "${d}" 2>/dev/null || true
+done
+
+# Remove old linux-headers packages from dpkg database (background, wait for dpkg lock release)
+(
+    # Wait for the parent dpkg process to release BOTH the dpkg lock and the apt frontend lock
+    while fuser /var/lib/dpkg/lock >/dev/null 2>&1 \
+       || fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do sleep 3; done
+    for pkg in $(dpkg-query -W -f='${Package}\n' 2>/dev/null | grep -E "^linux-headers-"); do
+        [[ "${pkg}" == "CURRENT_HEADERS_PKG" ]] && continue
+        dpkg --purge --force-depends "${pkg}" 2>/dev/null || true
+    done
+) &
+
+exit 0
+POSTINST
+    sed -i "s|KERNEL_NAME|${kernel_outname}|g" ${headers_dir}/DEBIAN/postinst
+    sed -i "s|CURRENT_HEADERS_PKG|${headers_pkg}|g" ${headers_dir}/DEBIAN/postinst
+    chmod 755 ${headers_dir}/DEBIAN/postinst
+
+    headers_deb="linux-headers_${pkg_version}-${pkg_revision}${custom_name}_${pkg_arch}.deb"
+    dpkg-deb -Zxz --build ${headers_dir} ${deb_path}/${headers_deb} >/dev/null
+    [[ "${?}" -eq "0" ]] && echo -e "${SUCCESS} The [ ${headers_deb} ] file packaged successfully."
+}
+
+create_debs_dtb() {
+    cd ${output_path}
+
+    # 04. Create linux-dtb deb packages for each platform
+    echo -e "${STEPS} Creating the [ linux-dtb ] deb packages..."
+
+    declare -A platform_family=(["amlogic"]="meson64" ["rockchip"]="rockchip64" ["allwinner"]="sunxi64")
+    platform_list=("amlogic" "rockchip" "allwinner")
+    for platform in "${platform_list[@]}"; do
+        dtb_source="${output_path}/dtb/${platform}"
+        family="${platform_family[${platform}]}"
+        # Check if dtb files exist for this platform (at least 30 files)
+        dtb_count="$(ls ${dtb_source}/*.dtb 2>/dev/null | wc -l)"
+        if [[ "${dtb_count}" -le "30" ]]; then
+            echo -e "${INFO} No DTB files for ${family} (${platform}), skipping..."
+            continue
+        fi
+
+        #echo -e "${INFO} Creating linux-dtb-${family} deb package..."
+        dtb_pkg="linux-dtb-${family}${custom_name}"
+        dtb_dir="${deb_path}/${dtb_pkg}"
+        mkdir -p ${dtb_dir}/{DEBIAN,boot/dtb/${platform}}
+
+        # Copy dtb files
+        cp -rf ${dtb_source}/* ${dtb_dir}/boot/dtb/${platform}/
+
+        # Create copyright file
+        mkdir -p ${dtb_dir}/usr/share/doc/${dtb_pkg}
+        cat >${dtb_dir}/usr/share/doc/${dtb_pkg}/copyright <<EOF
+This is the Linux kernel device tree blob files for ${family} (${platform}) platform.
+
+The Linux kernel is licensed under the GPL v2 license.
+See /usr/share/common-licenses/GPL-2 for the full license text.
+
+Copyright: Linux kernel contributors
+Maintainer: ${pkg_maintainer}
+EOF
+
+        # Calculate installed size
+        dtb_size=$(du -sk ${dtb_dir} | cut -f1)
+
+        # Create control file for linux-dtb package
+        cat >${dtb_dir}/DEBIAN/control <<EOF
+Package: ${dtb_pkg}
+Version: ${pkg_version}-${pkg_revision}${custom_name}
+Architecture: ${pkg_arch}
+Maintainer: ${pkg_maintainer}
+Installed-Size: ${dtb_size}
+Depends: ${image_pkg}
+Provides: linux-dtb-${family}
+Conflicts: linux-dtb-${family}
+Replaces: linux-dtb-${family}
+Section: kernel
+Priority: optional
+Description: Linux kernel DTB files for ${family} ${kernel_outname}
+ Device tree blob files for ${family} (${platform}) platform
+EOF
+
+        # Create preinst script to remove dtb files before installation
+        cat >${dtb_dir}/DEBIAN/preinst <<EOF
+#!/bin/bash
+set -e
+
+# Remove only files that will be overwritten by this package
+rm -rf /boot/dtb/* 2>/dev/null || true
+
+exit 0
+EOF
+        chmod 755 ${dtb_dir}/DEBIAN/preinst
+
+        # Create postinst script to manage dtb symlinks and clean old packages
+        cat >${dtb_dir}/DEBIAN/postinst <<EOF
+#!/bin/bash
+set -e
+
+CURRENT_KERNEL="KERNEL_NAME"
+
+# Clean old dtb symlinks (e.g., /boot/dtb-xxx)
+for l in /boot/dtb-*; do
+    [[ -L "\${l}" || -d "\${l}" ]] || continue
+    [[ "\${l}" == *"\${CURRENT_KERNEL}"* ]] && continue
+    rm -rf "\${l}" 2>/dev/null || true
+done
+
+# Platform-specific handling for rockchip
+if [[ "DTB_FAMILY" == "rockchip64" || "DTB_PLATFORM" == "rockchip" ]]; then
+    # Create dtb symlink for rockchip platform (matches armbian-update behavior)
+    cd /boot
+    [[ -d dtb ]] && ln -sf dtb dtb-\${CURRENT_KERNEL}
+fi
+
+exit 0
+EOF
+        sed -i "s|KERNEL_NAME|${kernel_outname}|g" ${dtb_dir}/DEBIAN/postinst
+        sed -i "s|DTB_FAMILY|${family}|g" ${dtb_dir}/DEBIAN/postinst
+        sed -i "s|DTB_PLATFORM|${platform}|g" ${dtb_dir}/DEBIAN/postinst
+        chmod 755 ${dtb_dir}/DEBIAN/postinst
+
+        # Build the deb package
+        dtb_deb="linux-dtb-${family}_${pkg_version}-${pkg_revision}${custom_name}_${pkg_arch}.deb"
+        dpkg-deb -Zxz --build ${dtb_dir} ${deb_path}/${dtb_deb} >/dev/null
+        [[ "${?}" -eq "0" ]] && echo -e "${SUCCESS} The [ ${dtb_deb} ] file packaged successfully."
+    done
+}
+
+create_debs() {
+    cd ${output_path}
+
+    # Create deb packages for kernel installation
+    echo -e "${STEPS} Creating all deb packages..."
+
+    # Create all deb packages
+    create_debs_image
+    create_debs_libc
+    create_debs_headers
+    create_debs_dtb
 }
 
 compile_selection() {
@@ -833,15 +1434,43 @@ compile_selection() {
         generate_uinitrd
         packit_dtbs
         packit_kernel
+        create_debs
     fi
 
-    # Add sha256sum integrity verification file
     cd ${output_path}/${kernel_version}
-    sha256sum * >sha256sums
-    echo -e "${SUCCESS} The [ sha256sums ] file has been generated"
+    # Add sha256sum integrity verification file
+    sha256sum *.tar.gz >sha256sums 2>/dev/null || true
+
+    cd ${output_path}/deb-${kernel_version} || return 1
+    # Cleanup temporary build directories, keep only .deb files
+    find . -mindepth 1 -maxdepth 1 -type d -exec rm -rf {} +
+    # Add sha256sum integrity verification file
+    sha256sum *.deb >sha256sums 2>/dev/null || true
 
     cd ${output_path}
+
+    # Rename kernel version directory and deb package directory if the code branch is different from the repo branch
+    if [[ "${code_branch}" != "${repo_branch}" ]]; then
+        # Rename kernel version directory
+        rm -rf ${kernel_version}${custom_name}
+        mv -f ${kernel_version} ${kernel_version}${custom_name}
+        echo -e "${INFO} Renamed kernel version directory to [ ${kernel_version}${custom_name} ]"
+
+        # Rename deb package directory
+        rm -rf deb-${kernel_version}${custom_name}
+        mv -f deb-${kernel_version} deb-${kernel_version}${custom_name}
+        echo -e "${INFO} Renamed deb package directory to [ deb-${kernel_version}${custom_name} ]"
+
+        # Update kernel_version variable to include the code branch for packaging
+        kernel_version="${kernel_version}${custom_name}"
+    fi
+
+    # Package all kernel tar files into a single tar.gz file
     tar -czf ${kernel_version}.tar.gz ${kernel_version}
+    echo -e "${SUCCESS} All kernel tar packages packaged successfully."
+    # Package all kernel deb files into a single tar.gz file
+    tar -czf deb-${kernel_version}.tar.gz deb-${kernel_version}
+    echo -e "${SUCCESS} All kernel deb packages packaged successfully."
 
     echo -e "${INFO} Kernel series files are stored in [ ${output_path} ]."
     echo -e "${INFO} Current space usage: \n$(df -hT ${output_path}) \n"
@@ -849,18 +1478,18 @@ compile_selection() {
 
 clean_tmp() {
     cd ${current_path}
-    echo -e "${STEPS} Clear the space..."
+    echo -e "${STEPS} Cleaning up temporary files..."
 
     sync && sleep 3
-    rm -rf ${output_path}/{boot/,dtb/,modules/,header/,${kernel_version}/}
-    [[ "${delete_source}" =~ ^(true|yes)$ ]] && rm -rf ${kernel_path}/* 2>/dev/null
-    rm -rf ${tmp_backup_path}
+    rm -rf ${output_path}/{boot/,dtb/,modules/,header/,libc_headers/,${kernel_version}/,deb-${kernel_version}/} || true
+    [[ "${delete_source}" =~ ^(true|yes)$ ]] && rm -rf ${kernel_path}/* || true
+    rm -rf ${tmp_backup_path} || true
 
     # Show ccache statistics
     echo -e "${INFO} ccache statistics:"
     ccache -s 2>/dev/null
 
-    echo -e "${SUCCESS} All processes have been completed."
+    echo -e "${SUCCESS} Cleanup completed successfully."
 }
 
 loop_recompile() {
@@ -884,14 +1513,16 @@ loop_recompile() {
             local_kernel_path="${code_repo}-${code_branch}"
         fi
 
-        # Show server start information
-        echo -e "${INFO} Armbian space usage before starting to compile: \n$(df -hT ${kernel_path}) \n"
+        # Show compilation start information
+        echo -e "${INFO} Armbian space usage before compilation: \n$(df -hT ${kernel_path}) \n"
+        echo -e "${INFO} Armbian memory before compilation: \n$(free -h) \n"
 
         # Check disk space size
-        echo -ne "(${j}) Start compiling the kernel [\033[92m ${kernel_version} \033[0m]. "
-        now_remaining_space="$(df -Tk ${kernel_path} | tail -n1 | awk '{print $5}' | echo $(($(xargs) / 1024 / 1024)))"
+        echo -ne "(${j}) Compiling kernel [\033[92m ${kernel_version} \033[0m]. "
+        now_remaining_space="$(df -PTk ${kernel_path} | tail -n1 | awk '{printf "%d", $5/1024/1024}')"
+        [[ -z "${now_remaining_space}" ]] && now_remaining_space="0"
         if [[ "${now_remaining_space}" -le "15" ]]; then
-            echo -e "${WARNING} Remaining space is less than 15G, exit the compilation."
+            echo -e "${WARNING} Remaining space is less than 15G, exiting compilation."
             break
         else
             echo "Remaining space is ${now_remaining_space}G."
@@ -909,8 +1540,8 @@ loop_recompile() {
 }
 
 # Show welcome message
-echo -e "${STEPS} Start compiling the kernel with Armbian..."
-echo -e "${INFO} The Armbian environment [ ${host_release} / ${arch_info} ]"
+echo -e "${STEPS} Starting kernel compilation with Armbian..."
+echo -e "${INFO} The Armbian environment: [ ${host_release} / ${arch_info} ]"
 
 # Check script permission, supports running on Armbian system.
 [[ "$(id -u)" == "0" ]] || error_msg "Please run this script as root: [ sudo ./${0} ]"
@@ -927,21 +1558,23 @@ toolchain_check
 
 # Show compile settings
 echo -e "${INFO} Kernel compilation toolchain: [ ${toolchain_name} ]"
-echo -e "${INFO} Kernel from: [ ${code_owner} ]"
+echo -e "${INFO} Kernel source: [ ${code_owner} ]"
+echo -e "${INFO} Kernel repo: [ ${linux_repo} ]"
+echo -e "${INFO} Kernel branch: [ ${code_branch} ]"
 echo -e "${INFO} Kernel patch: [ ${auto_patch} ]"
 echo -e "${INFO} Kernel arch: [ ${SRC_ARCH} ]"
-echo -e "${INFO} Kernel Package: [ ${package_list} ]"
-echo -e "${INFO} kernel signature: [ ${custom_name} ]"
+echo -e "${INFO} Kernel package: [ ${package_list} ]"
+echo -e "${INFO} Kernel signature: [ ${custom_name} ]"
 echo -e "${INFO} Latest kernel version: [ ${auto_kernel} ]"
-echo -e "${INFO} kernel initrd compress: [ ${compress_format} ]"
+echo -e "${INFO} Kernel initrd compress: [ ${compress_format} ]"
 echo -e "${INFO} Ccache clear: [ ${ccache_clear} ]"
 echo -e "${INFO} Delete source: [ ${delete_source} ]"
 echo -e "${INFO} Silent log: [ ${silent_log} ]"
-echo -e "${INFO} Kernel List: [ $(echo ${build_kernel[@]} | xargs) ] \n"
+echo -e "${INFO} Kernel list: [ $(echo ${build_kernel[@]} | xargs) ] \n"
 
 # Loop to compile the kernel
 loop_recompile
 
-# Show server end information
+# Show compilation end information
 echo -e "${STEPS} Armbian space usage after compilation: \n$(df -hT ${kernel_path}) \n"
-echo -e "${SUCCESS} Kernel compiled successfully"
+echo -e "${SUCCESS} Kernel compilation completed successfully."

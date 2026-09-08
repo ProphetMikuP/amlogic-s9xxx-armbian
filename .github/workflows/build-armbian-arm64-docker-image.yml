@@ -1,6 +1,6 @@
 #=====================================================================================
 # https://github.com/ophub/amlogic-s9xxx-armbian
-# Description: Build Armbian arm64 Docker image
+# Description: Build and publish Armbian arm64 Docker image
 # Instructions: https://github.com/docker/build-push-action
 # Build and Push to: https://hub.docker.com/
 #=====================================================================================
@@ -14,13 +14,14 @@ on:
       source_branch:
         description: "Select the source branch"
         required: false
-        default: "trixie"
+        default: "all"
         type: choice
         options:
+          - all
           - trixie
           - bookworm
+          - resolute
           - noble
-          - jammy
       docker_img:
         description: "Set the docker image"
         required: false
@@ -32,45 +33,71 @@ on:
 env:
   TZ: Etc/UTC
   MAKE_DOCKER_SH: compile-kernel/tools/script/docker/build_armbian_docker_image.sh
-  DOCKER_OUTPATH: out
 
 jobs:
+  setup:
+    runs-on: ubuntu-26.04-arm
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: Set build matrix based on source_branch input
+        id: set-matrix
+        run: |
+          if [[ "${{ inputs.source_branch }}" == "all" ]]; then
+            MATRIX='{"include":[{"branch":"trixie"},{"branch":"bookworm"},{"branch":"resolute"},{"branch":"noble"}]}'
+          else
+            MATRIX='{"include":[{"branch":"${{ inputs.source_branch }}"}]}'
+          fi
+          echo "matrix=${MATRIX}" >> "${GITHUB_OUTPUT}"
+
   build:
-    runs-on: ubuntu-24.04-arm
+    needs: setup
+    runs-on: ubuntu-26.04-arm
     if: ${{ github.event.repository.owner.id == github.event.sender.id }}
+    permissions:
+      contents: write
+
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.setup.outputs.matrix) }}
+
+    name: build-docker:${{ matrix.branch }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Download Armbian rootfs file [ ${{ inputs.source_branch }} ]
+      - name: Download Armbian rootfs file [ ${{ matrix.branch }} ]
         id: down
         if: (!cancelled())
         run: |
-          # Get Armbian rootfs file
+          # Retrieve the latest Armbian rootfs file from releases
           latest_version=$(curl -s \
               -H "Accept: application/vnd.github+json" \
               -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
               https://api.github.com/repos/${{ github.repository }}/releases?per_page=20 | \
-              jq -r --arg RTK "Armbian_${{ inputs.source_branch }}_arm64_" \
+              jq -r --arg RTK "Armbian_${{ matrix.branch }}_arm64_" \
               --arg BOARD "rootfs" \
-              '[.[] | select(.tag_name | contains($RTK))] |
-              map(.assets[] | select(.name | contains($BOARD) and endswith(".tar.gz"))) |
-              sort_by(.updated_at) |
+              '[.[] | select(.tag_name | contains($RTK)) |
+              {tag: .tag_name} + (.assets[] | select(.name | contains($BOARD) and endswith(".tar.gz")) |
+              {data: .updated_at, url: .url, name: .name})] |
+              sort_by(.data) |
               reverse |
-              .[0] |
-              {data: .updated_at, url: .url, name: .name}')
+              .[0]')
 
           [[ -z "${latest_version}" || "${latest_version}" == "null" ]] && {
-              echo "Invalid Armbian rootfs file download address."
+              echo "Error: Failed to resolve Armbian rootfs download URL."
               exit 1
           }
 
-          # Get URL and filename separately
+          # Extract download URL, filename, and release tag
           latest_url="$(echo ${latest_version} | jq -r '.url')"
           armbian_filename="$(echo ${latest_version} | jq -r '.name')"
+          release_tag="$(echo ${latest_version} | jq -r '.tag')"
+          echo "Matched release tag: ${release_tag}"
+          echo "build_tag=${release_tag}" >> ${GITHUB_OUTPUT}
 
-          # Download using API method (add octet-stream header)
+          # Download asset via GitHub API (binary stream)
           echo "Downloading: ${armbian_filename}"
           [[ -d "armbian" ]] || mkdir -p armbian
           curl -fsSL \
@@ -78,7 +105,7 @@ jobs:
                -H "Accept: application/octet-stream" \
                "${latest_url}" \
                -o "armbian/${armbian_filename}"
-          [[ "${?}" -ne "0" ]] && echo "Download failed." && exit 1
+          [[ "${?}" -ne "0" ]] && echo "Error: Download failed." && exit 1
 
           echo "status=success" >> ${GITHUB_OUTPUT}
 
@@ -87,30 +114,57 @@ jobs:
         if: ${{ steps.down.outputs.status == 'success' && !cancelled() }}
         run: |
           chmod +x ${MAKE_DOCKER_SH}
-          ${MAKE_DOCKER_SH}
+          ${MAKE_DOCKER_SH} ${{ matrix.branch }} arm64
+
           echo "status=success" >> ${GITHUB_OUTPUT}
 
-      - name: Set up Docker Buildx
-        id: buildx
-        if: (!cancelled())
-        uses: docker/setup-buildx-action@v3
+      - name: Upload rebuilt images to Release
+        uses: ophub/upload-to-releases@main
+        if: ${{ steps.make.outputs.status == 'success' && !cancelled() }}
+        with:
+          tag: ${{ steps.down.outputs.build_tag }}
+          artifacts: out/*.tar.gz
+          allow_updates: true
+          remove_artifacts: false
+          replaces_artifacts: true
+          make_latest: true
+          gh_token: ${{ secrets.GITHUB_TOKEN }}
+          body: |
+            ### Armbian Image Information
+            - Default username: `root`
+            - Default password: `1234`
+            - Install command: `armbian-install`
+            - Update command: `armbian-update`
+            ### Applicable Platform
+            - 🐧 `arm64`
+            - 🐋 Docker image: https://hub.docker.com/u/ophub
 
       - name: Login to Docker Hub
         id: login
-        if: (!cancelled())
-        uses: docker/login-action@v3
+        if: ${{ steps.make.outputs.status == 'success' && !cancelled() }}
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
-      - name: Push to Docker Hub
+      - name: Load and push image to Docker Hub
         id: push
-        if: (!cancelled())
-        uses: docker/build-push-action@v5
-        with:
-          push: true
-          platforms: linux/arm64
-          context: ${{ env.DOCKER_OUTPATH }}
-          tags: |
-            "${{ inputs.docker_img }}-${{ inputs.source_branch }}:arm64"
-            "${{ inputs.docker_img }}-${{ inputs.source_branch }}:latest"
+        if: ${{ steps.make.outputs.status == 'success' && !cancelled() }}
+        run: |
+          # Load the offline Docker image built by build_armbian_docker_image.sh
+          offline_image="$(ls out/*.tar.gz 2>/dev/null | head -n 1)"
+          [[ -z "${offline_image}" ]] && echo "Error: No offline image found." && exit 1
+          loaded_image="$(docker load -i "${offline_image}" | grep -oP 'Loaded image: \K.*')"
+          [[ -z "${loaded_image}" ]] && echo "Error: Failed to load Docker image." && exit 1
+          echo "Loaded image: ${loaded_image}"
+
+          # Tag for Docker Hub
+          docker tag "${loaded_image}" "${{ inputs.docker_img }}-${{ matrix.branch }}:arm64"
+          docker tag "${loaded_image}" "${{ inputs.docker_img }}-${{ matrix.branch }}:latest"
+
+          # Push to Docker Hub
+          docker push "${{ inputs.docker_img }}-${{ matrix.branch }}:arm64"
+          docker push "${{ inputs.docker_img }}-${{ matrix.branch }}:latest"
+
+          echo "status=success" >> ${GITHUB_OUTPUT}
+

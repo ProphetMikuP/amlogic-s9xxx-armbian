@@ -8,7 +8,7 @@
 # This file is a part of the Rebuild Armbian
 # https://github.com/ophub/amlogic-s9xxx-armbian
 #
-# Description: Compile the kernel with Armbian Docker container
+# Description: Compile the kernel using an Armbian Docker container
 # Copyright (C) 2021~ https://www.kernel.org
 # Copyright (C) 2021~ https://github.com/unifreq
 # Copyright (C) 2021~ https://github.com/ophub/amlogic-s9xxx-armbian
@@ -18,10 +18,10 @@
 #
 #======================================= Functions list =======================================
 #
-# error_msg                : Output error message
+# error_msg                : Output error message and exit
 #
 # init_var                 : Initialize all variables
-# install_docker_engine    : Install Docker engine
+# install_docker_engine    : Install Docker engine if not present
 # launch_docker_container  : Launch the Armbian Docker container
 # configure_and_compile    : Configure the Docker environment and compile the kernel
 #
@@ -58,7 +58,7 @@ error_msg() {
 }
 
 init_var() {
-    echo -e "${STEPS} Start Initializing Variables..."
+    echo -e "${STEPS} Initializing variables..."
 
     # If it is followed by [ : ], it means that the option requires a parameter value
     local options="k:a:n:m:p:r:t:c:d:s:z:l:f:h:i:"
@@ -93,29 +93,32 @@ init_var() {
 }
 
 install_docker_engine() {
-    echo -e "${STEPS} Start installing Docker engine..."
-
+    echo -e "${STEPS} Installing Docker engine..."
     curl -fsSL https://get.docker.com | sh
-    usermod -aG docker ${USER}
-    newgrp docker
 }
 
 launch_docker_container() {
-    echo -e "${STEPS} Start launching the Armbian Docker container..."
+    echo -e "${STEPS} Launching the Armbian Docker container..."
 
     # Check if the Armbian Docker container is running
     if [[ "$(docker ps -q -f name=${docker_container})" ]]; then
         echo -e "${INFO} The docker container [ ${docker_container} ] is running."
+        container_freshly_started="no"
     else
         # Remove the stopped Armbian Docker container
         [[ "$(docker ps -aq -f status=exited -f name=${docker_container})" ]] && {
-            echo -e "${INFO} Start removing the stopped Docker container [ ${docker_container} ]..."
+            echo -e "${INFO} Removing the stopped Docker container [ ${docker_container} ]..."
             docker rm -f ${docker_container} >/dev/null 2>&1
         }
 
-        # Enable QEMU emulation for multi-architecture builds
-        echo -e "${INFO} Enable QEMU emulation for multi-architecture builds..."
-        docker run --rm --privileged multiarch/qemu-user-static --reset -p yes 2>/dev/null || true
+        # Enable QEMU emulation only for cross-arch hosts. When the host is already
+        # aarch64 we are running natively and do not need binfmt registration.
+        if [[ "${arch_info}" != "aarch64" ]]; then
+            echo -e "${INFO} Enable QEMU emulation for multi-architecture builds..."
+            docker run --rm --privileged multiarch/qemu-user-static --reset -p yes 2>/dev/null || true
+        else
+            echo -e "${INFO} Native aarch64 host detected, skipping QEMU registration."
+        fi
 
         # Set Docker mount paths
         echo -e "${INFO} Setting up Docker host mount paths..."
@@ -124,28 +127,36 @@ launch_docker_container() {
         [[ -d "${compile_path}" ]] || mkdir -p ${compile_path}
         [[ -d "${ccache_path}" ]] || mkdir -p ${ccache_path}
 
-        # Pull the Armbian Docker image
-        echo -e "${INFO} Start pulling the Docker image: [ ${docker_image} ]..."
+        # Pull the Armbian Docker image. Use --restart=no because this is a one-shot
+        # build container; auto-restart on host reboot is not desirable here.
+        echo -e "${INFO} Pulling the Docker image: [ ${docker_image} ]..."
         docker run -d --privileged \
             --name ${docker_container} \
             -v ${compile_path}:/opt/kernel/compile-kernel \
             -v ${ccache_path}:/root/.ccache \
             -v /etc/localtime:/etc/localtime:ro \
-            -v /etc/timezone:/etc/timezone:ro \
             -e CCACHE_DIR=/root/.ccache \
-            --restart=always \
+            --restart=no \
             ${docker_image}
+        container_freshly_started="yes"
     fi
 }
 
 configure_and_compile() {
-    echo -e "${STEPS} Start configuring the Docker environment and compiling the kernel..."
+    echo -e "${STEPS} Configuring the Docker environment and compiling the kernel..."
 
-    echo -e "${INFO} Synchronize server time."
-    ntpdate ntp.ubuntu.com 0.pool.ntp.org || true
+    # Synchronize server time using ntpdate if it is available.
+    if command -v ntpdate >/dev/null 2>&1; then
+        echo -e "${INFO} Synchronizing server time."
+        ntpdate ntp.ubuntu.com 0.pool.ntp.org || true
+    fi
 
-    echo -e "${INFO} Restarting Docker container..."
-    docker restart ${docker_container} >/dev/null && sleep 5
+    # Only restart when reusing a pre-existing container; a freshly started one
+    # is already healthy and an immediate restart only wastes the startup time.
+    if [[ "${container_freshly_started:-no}" != "yes" ]]; then
+        echo -e "${INFO} Restarting Docker container..."
+        docker restart ${docker_container} >/dev/null && sleep 5
+    fi
 
     echo -e "${INFO} Syncing scripts in Docker container..."
     docker exec -i "${docker_container}" bash "${docker_script}" -u
@@ -158,12 +169,12 @@ configure_and_compile() {
     [[ -d "${kernel_patch_path}" ]] && docker cp ${kernel_patch_path}/. "${docker_container}":/opt/kernel/compile-kernel/tools/patch/
     docker exec -i "${docker_container}" ls -Alh /opt/kernel/compile-kernel/tools/patch/ || true
 
-    echo -e "${INFO} Start compiling the kernel inside the Docker container..."
+    echo -e "${INFO} Compiling the kernel inside the Docker container..."
     docker exec -i "${docker_container}" bash "${docker_script}" "${@}"
 }
 
 # Show welcome message
-echo -e "${STEPS} Welcome to compile kernel"
+echo -e "${STEPS} Welcome to the Kernel Compilation Tool!"
 echo -e "${INFO} The host environment [ ${host_id}: ${host_release} / ${arch_info} ]"
 # Check script permission
 [[ "$(id -u)" == "0" ]] || error_msg "Please run this script as root: [ sudo ./${0} ]"
@@ -179,4 +190,4 @@ configure_and_compile "${@}"
 
 # Show server end information
 echo -e "${STEPS} Host space usage after compilation: \n$(df -hT ${docker_hostpath}) \n"
-echo -e "${SUCCESS} All processes completed successfully"
+echo -e "${SUCCESS} All processes completed successfully."

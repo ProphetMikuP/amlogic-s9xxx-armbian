@@ -1,8 +1,8 @@
 # Armbian 构建及使用方法
 
-查看英文说明 | [View English description](README.md)
+[English Instructions](README.md) | [中文说明](README.cn.md) | [日本語説明](README.ja.md)
 
-Github Actions 是 Microsoft 推出的一项服务，它提供了性能配置非常不错的虚拟服务器环境，基于它可以进行构建、测试、打包、部署项目。对于公开仓库可免费无时间限制地使用，且单次编译时间长达 6 个小时，这对于编译 Armbian 来说是够用的（我们一般在3小时左右可以完成一次编译工作）。分享只是为了交流经验，不足的地方请大家理解，请不要在网络上发起各种不好的攻击行为，也不要恶意使用 GitHub Actions。
+GitHub Actions 是 Microsoft 推出的一项服务，提供高性能的虚拟服务器环境，可用于构建、测试、打包和部署项目。公开仓库可免费无时间限制地使用，单次编译时间长达 6 小时，足以满足 Armbian 的编译需求（通常 3 小时左右即可完成编译）。本项目仅供技术交流，不足之处敬请谅解。请勿发起网络攻击或恶意使用 GitHub Actions。
 
 # 目录
 
@@ -92,6 +92,8 @@ Github Actions 是 Microsoft 推出的一项服务，它提供了性能配置非
         - [12.11.2.2 如何使用 cm9vdA 的 u-boot 制作脚本](#121122-如何使用-cm9vda-的-u-boot-制作脚本)
     - [12.12 内存大小识别错误](#1212-内存大小识别错误)
     - [12.13 如何反编译 dtb 文件](#1213-如何反编译-dtb-文件)
+      - [12.13.1 直接反编译 dtb 文件](#12131-直接反编译-dtb-文件)
+      - [12.13.2 从运行中的设备导出完全态 DTS（推荐）](#12132-从运行中的设备导出完全态-dts推荐)
     - [12.14 如何修改 cmdline 设置](#1214-如何修改-cmdline-设置)
     - [12.15 如何添加新的支持设备](#1215-如何添加新的支持设备)
       - [12.15.1 添加设备配置文件](#12151-添加设备配置文件)
@@ -106,10 +108,11 @@ Github Actions 是 Microsoft 推出的一项服务，它提供了性能配置非
     - [12.18 如何编译 boot.scr 文件](#1218-如何编译-bootscr-文件)
     - [12.19 如何开启远程桌面和修改默认端口](#1219-如何开启远程桌面和修改默认端口)
     - [12.20 TCP 拥塞控制优化方案](#1220-tcp-拥塞控制优化方案)
+    - [12.21 关于 HDMI EDID 识别异常问题的解决方法](#1221-关于-hdmi-edid-识别异常问题的解决方法)
 
 ## 1. 注册自己的 Github 的账户
 
-注册自己的账户，以便进行系统个性化定制的继续操作。点击 github.com 网站右上角的 `Sign up` 按钮，根据提示注册自己的账户。
+注册账户以进行后续的系统定制操作。点击 github.com 网站右上角的 `Sign up` 按钮，根据提示完成注册。
 
 ## 2. 设置隐私变量 GITHUB_TOKEN 等
 
@@ -122,7 +125,7 @@ Github Actions 是 Microsoft 推出的一项服务，它提供了性能配置非
 
 ## 3. Fork 仓库并设置工作流权限
 
-现在可以 Fork 仓库了，打开仓库 https://github.com/ophub/amlogic-s9xxx-armbian ，点击右上的 Fork 按钮，复制一份仓库代码到自己的账户下，稍等几秒钟，提示 Fork 完成后，到自己的账户下访问自己仓库里的 amlogic-s9xxx-armbian 。在右上角的 `Settings` > `Actions` > `General` > `Workflow permissions` 下选择 `Read and write permissions` 并保存。图示如下：
+打开仓库 https://github.com/ophub/amlogic-s9xxx-armbian ，点击右上角的 Fork 按钮，将仓库代码复制到自己的账户下。Fork 完成后，访问自己账户中的 amlogic-s9xxx-armbian 仓库，在右上角的 `Settings` > `Actions` > `General` > `Workflow permissions` 下选择 `Read and write permissions` 并保存。操作示意如下：
 
 <div style="width:100%;margin-top:40px;margin:5px;">
 <img src=https://user-images.githubusercontent.com/68696949/167585338-841d3b05-8d98-4d73-ba72-475aad4a95a9.png width="300" />
@@ -130,7 +133,7 @@ Github Actions 是 Microsoft 推出的一项服务，它提供了性能配置非
 
 ## 4. 个性化 Armbian 系统定制文件说明
 
-系统编译的流程在 [.github/workflows/build-armbian-arm64-server-image.yml](../.github/workflows/build-armbian-arm64-server-image.yml) 文件里控制，在 workflows 目录下还有其他 .yml 文件，实现其他不同的功能。编译系统时采用了 Armbian 官方的当前代码进行实时编译，相关参数可以查阅官方文档。
+系统编译流程由 [.github/workflows/build-armbian-arm64-server-image.yml](../.github/workflows/build-armbian-arm64-server-image.yml) 文件控制，workflows 目录下的其他 .yml 文件用于实现不同功能。编译时采用 Armbian 官方的最新代码进行实时编译，相关参数请参阅官方文档。
 
 ```yaml
 - name: Compile Armbian [ ${{ inputs.set_release }} ]
@@ -145,7 +148,7 @@ Github Actions 是 Microsoft 推出的一项服务，它提供了性能配置非
     echo "status=success" >> ${GITHUB_OUTPUT}
 ```
 
-使用 `ophub` 打包 Armbian 时，使用 `armbian_files` 参数可以添加或覆盖自定义文件到 ophub 的 [common-files](https://github.com/ophub/amlogic-s9xxx-armbian/tree/main/build-armbian/armbian-files/common-files) 目录。目录结构必须与 Armbian 根目录保持一致，以确保文件被正确覆盖到固件中（例如：默认配置文件应存放于 `etc/default/` 子目录下）。设置方法举例：
+使用 `ophub` 打包 Armbian 时，可通过 `armbian_files` 参数将自定义文件添加或覆盖至 ophub 的 [common-files](https://github.com/ophub/amlogic-s9xxx-armbian/tree/main/build-armbian/armbian-files/common-files) 目录。目录结构必须与 Armbian 根目录保持一致，以确保文件被正确覆盖到固件中（例如：默认配置文件应存放于 `etc/default/` 子目录下）。示例如下：
 
 ```yaml
 - name: Rebuild Armbian
@@ -159,11 +162,11 @@ Github Actions 是 Microsoft 推出的一项服务，它提供了性能配置非
 
 ## 5. 编译系统
 
-系统编译的方式很多，可以设置定时编译，手动编译，或者设置一些特定事件来触发编译。我们先从简单的操作开始。
+系统编译支持多种方式，包括手动编译、定时编译以及特定事件触发编译。
 
 ### 5.1 手动编译
 
-在自己仓库的导航栏中，点击 Actions 按钮，再依次点击 Build armbian > Run workflow > Run workflow ，开始编译，等待大约 3 个小时，全部流程都结束后就完成编译了。图示如下：
+在仓库导航栏中点击 Actions，依次点击 Build armbian > Run workflow > Run workflow 即可开始编译。全部流程约需 3 小时。操作示意如下：
 
 <div style="width:100%;margin-top:40px;margin:5px;">
 <img src=https://user-images.githubusercontent.com/68696949/163203938-e7762b09-e6b8-4cf5-b1f1-9c67c1a29953.png width="300" />
@@ -182,15 +185,15 @@ schedule:
 
 ### 5.3 自定义默认系统配置
 
-默认系统的配置信息记录在 [model_database.conf](../build-armbian/armbian-files/common-files/etc/model_database.conf) 文件里，其中的 `BOARD` 名字要求唯一。
+默认系统配置信息记录在 [model_database.conf](../build-armbian/armbian-files/common-files/etc/model_database.conf) 文件中，`BOARD` 名称必须唯一。
 
-其中 `BUILD` 的值是 `yes` 的是默认打包的部分盒子的系统，这些盒子可以直接使用。默认值是 `no` 的没有打包，这些没有打包的盒子使用时需要下载相同 `FAMILY` 的打包好的系统，在写入 `USB` 后，可以在电脑上打开 `USB 中的 boot 分区`，修改 `/boot/uEnv.txt` 文件中 `FDT 的 dtb 名称`，适配列表中的其他盒子。
+其中 `BUILD` 值为 `yes` 的是默认构建的设备，这些设备可直接使用对应系统。默认值为 `no` 的设备未包含在默认构建中，使用时需下载相同 `FAMILY` 的已构建系统。写入 `USB` 后，在电脑上打开 `USB 中的 boot 分区`，修改 `/boot/uEnv.txt` 文件中的 `FDT dtb 名称`，即可适配列表中的其他设备。
 
-在本地编译时通过 `-b` 参数指定，在 github.com 的 Actions 里编译时通过 `armbian_board` 参数指定。使用 `-b all` 代表打包 `BUILD` 是 `yes` 的全部设备。使用指定 `BOARD` 参数打包时，无论 `BUILD` 是 `yes` 或者 `no` 均可打包，例如：`-b r68s_s905x3-tx3_s905l3a-cm311`
+本地编译时通过 `-b` 参数指定，GitHub Actions 编译时通过 `armbian_board` 参数指定。`-b all` 表示构建所有 `BUILD` 为 `yes` 的设备。指定 `BOARD` 参数时，无论 `BUILD` 值为 `yes` 或 `no` 均可构建，例如：`-b r68s_s905x3-tx3_s905l3a-cm311`
 
 ### 5.4 使用逻辑卷扩大 Github Actions 编译空间
 
-Github Actions 编译空间默认是 84G，除去系统和必要软件包外，可用空间在 50G 左右，当编译全部固件时会遇到空间不足的问题，可以使用逻辑卷扩大编译空间至 110G 左右。参考 [.github/workflows/build-armbian-arm64-server-image.yml](../.github/workflows/build-armbian-arm64-server-image.yml) 文件里的方法，使用下面的命令创建逻辑卷。并在编译时使用逻辑卷的路径。
+GitHub Actions 默认编译空间为 84G，去除系统和必要软件包后可用空间约 50G。编译全部固件时可能遇到空间不足的问题，可通过逻辑卷将编译空间扩大至约 110G。参照 [.github/workflows/build-armbian-arm64-server-image.yml](../.github/workflows/build-armbian-arm64-server-image.yml) 文件中的方法，使用以下命令创建逻辑卷，并在编译时使用逻辑卷路径。
 
 ```yaml
 - name: Create simulated physical disk
@@ -208,27 +211,27 @@ Github Actions 编译空间默认是 84G，除去系统和必要软件包外，�
     sudo mkfs.xfs /dev/github/runner
     sudo mkdir -p /builder
     sudo mount /dev/github/runner /builder
-    sudo chown -R runner.runner /builder
+    sudo chown -R runner:runner /builder
     df -Th
 ```
 
 ### 5.5 制作 Armbian Docker 镜像
 
-Armbian 系统 [Docker](https://hub.docker.com/u/ophub) 镜像的制作方法可以参考 [armbian_docker](../compile-kernel/tools/script/docker) 制作脚本。
+Armbian 系统 [Docker](https://hub.docker.com/u/ophub) 镜像的制作方法请参考 [armbian_docker](../compile-kernel/tools/script/docker) 制作脚本。
 
 ## 6. 保存系统
 
-系统保存的设置也在 [.github/workflows/build-armbian-arm64-server-image.yml](../.github/workflows/build-armbian-arm64-server-image.yml) 文件里控制。我们将编译好的系统通过脚本自动上传到 github 官方提供的 Releases 里面。
+系统保存设置同样在 [.github/workflows/build-armbian-arm64-server-image.yml](../.github/workflows/build-armbian-arm64-server-image.yml) 文件中控制。编译完成的系统将通过脚本自动上传至 GitHub 官方的 Releases。
 
 ```yaml
 - name: Upload Armbian image to Release
-  uses: ncipollo/release-action@main
+  uses: ophub/upload-to-release@main
   if: ${{ env.PACKAGED_STATUS }} == 'success' && !cancelled()
   with:
     tag: Armbian_${{ env.ARMBIAN_RELEASE }}_${{ env.PACKAGED_OUTPUTDATE }}
     artifacts: ${{ env.PACKAGED_OUTPUTPATH }}/*
-    allowUpdates: true
-    token: ${{ secrets.GITHUB_TOKEN }}
+    allow_updates: true
+    gh_token: ${{ secrets.GITHUB_TOKEN }}
     body: |
       These are the Armbian OS image
       * OS information
@@ -240,7 +243,7 @@ Armbian 系统 [Docker](https://hub.docker.com/u/ophub) 镜像的制作方法可
 
 ## 7. 下载系统
 
-从仓库首页右下角的 Release 版块进入，选择和自己盒子型号对应的系统。图示如下：
+从仓库首页右下角的 Release 版块进入，选择与自身设备型号对应的系统。操作示意如下：
 
 <div style="width:100%;margin-top:40px;margin:5px;">
 <img src=https://user-images.githubusercontent.com/68696949/163204798-0d98524c-73df-4876-8912-fcae2845fbba.png width="300" />
@@ -249,9 +252,9 @@ Armbian 系统 [Docker](https://hub.docker.com/u/ophub) 镜像的制作方法可
 
 ## 8. 安装 Armbian 到 EMMC
 
-Amlogic, Rockchip 和 Allwinner 的安装方法不同。不同的设备具有不同的存储，有的设备使用外置 microSD 卡，有的带有 eMMC，有的支持使用 NVMe 等多种存储介质，根据设备不同，分别介绍其安装方法。首先在 [Releases](https://github.com/ophub/amlogic-s9xxx-armbian/releases) 里下载自己设备的 Armbian 系统，解压缩成 .img 格式备用。根据自己的设备，使用下面小结中不同的安装方法。
+Amlogic、Rockchip 和 Allwinner 的安装方法各不相同。不同设备支持不同的存储介质，包括外置 microSD 卡、eMMC 和 NVMe 等，以下按设备类型分别介绍安装方法。首先从 [Releases](https://github.com/ophub/amlogic-s9xxx-armbian/releases) 下载对应设备的 Armbian 系统，解压为 .img 格式备用，然后根据设备类型参照以下相应章节进行安装。
 
-当安装完成后，将 Armbian 设备接入`路由器`，设备开机`2分钟`后，到路由器里查看设备名称为 Armbian 的 `IP`，使用 `SSH` 工具连接进行管理设置。默认用户名为 `root`，默认密码为 `1234`，默认端口为 `22`
+安装完成后，将设备接入`路由器`，开机约 `2 分钟`后，在路由器中查找设备名称为 Armbian 的 `IP` 地址，使用 `SSH` 工具连接即可进行管理配置。默认用户名为 `root`，默认密码为 `1234`，默认端口为 `22`
 
 <div style="width:100%;margin-top:40px;margin:5px;">
 <img src=https://user-images.githubusercontent.com/68696949/202972715-addcd695-970a-43d6-8a34-24a9c4bc80a2.png width="600" /><br />
@@ -277,15 +280,15 @@ armbian-install
 
 ### 8.2 Rockchip 系列安装方法
 
-每个设备的安装方法不同，分别介绍如下。
+各设备的安装方法如下。
 
 #### 8.2.1 Radxa-Rock5B 的安装方法
 
-Radxa-Rock5B 有 microSD/eMMC/NVMe 等多种存储介质可以选择，相应的安装方法也不同。下载 [rk3588_spl_loader_v1.08.111.bin 和 spi_image.img](https://github.com/ophub/u-boot/tree/main/u-boot/rockchip/rock5b) 文件备用。下载 [RKDevTool](https://github.com/ophub/kernel/releases/download/tools/Radxa_rock5b_RKDevTool_Release_v2.96__DriverAssitant_v5.1.1.tar.gz) 工具及驱动备用。下载 [Rufus](https://rufus.ie/) 或者 [balenaEtcher](https://www.balena.io/etcher/) 写盘工具备用。
+Radxa-Rock5B 支持 microSD/eMMC/NVMe 等多种存储介质，安装方法因介质而异。下载 [rk3588_spl_loader_v1.08.111.bin 和 spi_image.img](https://github.com/ophub/u-boot/tree/main/u-boot/rockchip/rock5b) 文件备用。下载 [RKDevTool](https://github.com/ophub/kernel/releases/download/tools/Radxa_rock5b_RKDevTool_Release_v2.96__DriverAssitant_v5.1.1.tar.gz) 工具及驱动备用。下载 [Rufus](https://rufus.ie/) 或者 [balenaEtcher](https://www.balena.io/etcher/) 写盘工具备用。
 
 ##### 8.2.1.1 安装系统至 microSD
 
-使用 Rufus 或者 balenaEtcher 等工具将 Armbian 系统镜像写入 microSD 里，然后把写好系统的 microSD 插入设备即可使用。
+使用 Rufus 或 balenaEtcher 等工具将 Armbian 系统镜像写入 microSD，然后将 microSD 插入设备即可使用。
 
 <div style="width:100%;margin-top:40px;margin:5px;">
 <img src=https://user-images.githubusercontent.com/68696949/202972996-300f223b-f6f6-48af-86ca-bdc842e5017d.png width="600" /><br />
@@ -294,13 +297,13 @@ Radxa-Rock5B 有 microSD/eMMC/NVMe 等多种存储介质可以选择，相应的
 
 ##### 8.2.1.2 安装系统至 eMMC
 
-使用 microSD 卡安装：将 Armbian 系统镜像写入 microSD 卡，将 microSD 卡插入设备并启动，上传 `armbian.img` 镜像文件到 microSD 卡，使用 `dd` 命令将 Armbian 镜像写入 NVMe 中，命令如下：
+使用 microSD 卡安装：将 Armbian 系统镜像写入 microSD 卡，将 microSD 卡插入设备并启动，上传 `armbian.img` 镜像文件到 microSD 卡，使用 `dd` 命令将 Armbian 镜像写入 NVMe，命令如下：
 
 ```Shell
 dd if=armbian.img  of=/dev/mmcblk1  bs=1M status=progress
 ```
 
-- 使用 USB 转 eMMC 读卡器安装：将 eMMC 模块与电脑连接，使用 Rufus 或者 balenaEtcher 等工具将 Armbian 系统镜像写入 eMMC 里，然后把写好系统的 eMMC 插入设备即可使用。
+- 使用 USB 转 eMMC 读卡器安装：将 eMMC 模块与电脑连接，使用 Rufus 或 balenaEtcher 等工具将 Armbian 系统镜像写入 eMMC，然后将 eMMC 插入设备即可使用。
 - 使用 Maskrom 模式安装：关闭开发板电源。按住金色按钮。将 USB-A 转 C 型电缆插入 ROCK 5B C 型端口，另一端插入 PC。松开金色按钮。检查 USB 设备提示找到一个 MASKROM 设备。右键单击列表的空白区域，然后选择加载 `rock-5b-emmc.cfg` 配置文件（配置文件和 RKDevTool 在同一个目录下）。将 `rk3588_spl_loader_v1.08.111.bin` 和 `Armbian.img` 按下图所示设置，选择写入即可。
 
 <div style="width:100%;margin-top:40px;margin:5px;">
@@ -312,9 +315,9 @@ dd if=armbian.img  of=/dev/mmcblk1  bs=1M status=progress
 
 ##### 8.2.1.3 安装系统至 NVMe
 
-ROCK-5B 在主板上有一个 SPI 闪存，将引导加载程序安装到 SPI 闪存可以支持 SoC maskrom 模式不直接支持的其他启动介质（如 SATA、USB3 或 NVMe）。使用 NVMe 需要先写入 SPI 文件。方法如下：
+ROCK-5B 主板配备 SPI 闪存，将引导加载程序写入 SPI 闪存后，可支持 SoC maskrom 模式不直接支持的启动介质（如 SATA、USB3 或 NVMe）。使用 NVMe 启动前需先写入 SPI 文件，方法如下：
 
-关闭开发板电源。删除可启动设备，如MicroSD卡，eMMC模块等。按住金色（或某些开发板修订版上的银色）按钮。将 USB-A 转 C 型电缆插入 ROCK-5B C 型端口，另一端插入 PC。松开金色按钮。检查 USB 设备找到一个 MASKROM 设备。在列表框中右键选择加载配置，然后在资源管理文件夹中选择配置文件（配置文件和 RKDevTool 在同一个目录下），根据下图选择 `rk3588_spl_loader_v1.08.111.bin` 和 `spi_image.img` 文件，点击写入即可，如下图所示：
+关闭开发板电源，移除 MicroSD 卡、eMMC 模块等可启动设备。按住金色（或部分修订版上的银色）按钮，将 USB-A 转 Type-C 线缆插入 ROCK-5B 的 Type-C 端口，另一端插入 PC。松开按钮，检查 USB 设备是否发现 MASKROM 设备。在列表框中右键选择加载配置，在资源管理器中选择配置文件（配置文件和 RKDevTool 在同一目录下），根据下图选择 `rk3588_spl_loader_v1.08.111.bin` 和 `spi_image.img` 文件，点击写入即可，如下图所示：
 
 <div style="width:100%;margin-top:40px;margin:5px;">
 <img src=https://user-images.githubusercontent.com/68696949/202954823-3d3b1509-eedc-4192-91eb-017269c7f896.png width="200" /><br />
@@ -323,7 +326,7 @@ ROCK-5B 在主板上有一个 SPI 闪存，将引导加载程序安装到 SPI �
 <img src=https://user-images.githubusercontent.com/68696949/202961447-49c0941a-e233-4b2a-b96b-b47636ce3cf2.png width="600" />
 </div>
 
-- 使用读卡器安装：将 M.2 NVMe SSD 插入 M.2 NVMe SSD 到 USB3.0 读卡器，以连接到主机。使用 Rufus 或者 balenaEtcher 等工具将 Armbian 系统镜像写入 NVMe 里，然后把写好系统的 NVMe 插入设备即可使用。
+- 使用读卡器安装：将 M.2 NVMe SSD 插入 M.2 NVMe SSD 转 USB3.0 读卡器以连接到主机。使用 Rufus 或 balenaEtcher 等工具将 Armbian 系统镜像写入 NVMe，然后将 NVMe 插入设备即可使用。
 - 使用 microSD 卡安装：将 Armbian 系统镜像写入 microSD 卡，将 microSD 卡插入设备并启动，上传 `armbian.img` 镜像文件到 microSD 卡，使用 `dd` 命令将 Armbian 镜像写入 NVMe 中，命令如下：
 
 ```Shell
@@ -332,7 +335,7 @@ dd if=armbian.img  of=/dev/nvme0n1  bs=1M status=progress
 
 #### 8.2.2 电犀牛 R66S 的安装方法
 
-使用 Rufus 或者 balenaEtcher 等工具将 Armbian 系统镜像写入 microSD 里，然后把写好系统的 microSD 插入设备即可使用。
+使用 Rufus 或 balenaEtcher 等工具将 Armbian 系统镜像写入 microSD，然后将 microSD 插入设备即可使用。
 
 #### 8.2.3 电犀牛 R68S 的安装方法
 
@@ -367,7 +370,7 @@ dd if=armbian.img  of=/dev/nvme0n1  bs=1M status=progress
 
 #### 8.2.5 我家云的安装方法
 
-方法转载自 [cc747](https://post.smzdm.com/p/a4wkdo7l/) 的教程。刷机需要进入 Maskrom 模式。使我家云处于断电状态，拔掉所有线。用 USB 双公头线，一头插入我家云的 USB2.0 接口，一头插入电脑。用回形针插进 Reset 孔，并按压住不松开。插入电源线。等待几秒钟，直到 RKDevTool 框的下方出现`发现一个LOADER设备`后才松开回形针。将 RKDevTool 切换到`高级功能`点击`进入Maskrom`按钮，提示`发现一个MASKROM设备`。右键添加项。
+方法转载自 [cc747](https://post.smzdm.com/p/a4wkdo7l/) 的教程。刷机需要进入 Maskrom 模式。确保设备处于断电状态，拔掉所有线缆。用 USB 双公头线，一头插入我家云的 USB2.0 接口，一头插入电脑。用回形针插入 Reset 孔并按住不松开。插入电源线，等待数秒，直到 RKDevTool 下方出现`发现一个LOADER设备`后松开回形针。将 RKDevTool 切换到`高级功能`点击`进入Maskrom`按钮，提示`发现一个MASKROM设备`。右键添加项。
 
 - 地址 `0xCCCCCCCC`, 名字 `Boot`, 路径[选择](https://github.com/ophub/u-boot/tree/main/u-boot/rockchip/chainedbox) `rk3328_loader_v1.14.249.bin`。
 - 地址 `0x00000000`, 名字 `system`, 路径选择要刷的 `Armbian.img` 系统。
@@ -397,9 +400,9 @@ armbian-install
 
 可以在 Ubuntu/Debian/Armbian 系统中使用 Docker 版本的 Armbian 镜像。这些镜像托管在 [Docker Hub](https://hub.docker.com/r/ophub) 上，可以直接下载使用。
 
-提供了四个不同内核版本的 Armbian Docker 镜像：`armbian-trixie`，`armbian-bookworm`，`armbian-noble`，`armbian-jammy`。每个版本都有 `arm64` 和 `amd64` 版本，可以根据需要选择不同的内核版本。
+提供了四个不同内核版本的 Armbian Docker 镜像：`armbian-trixie`，`armbian-bookworm`，`armbian-noble`，`armbian-resolute`。每个版本均提供 `arm64` 和 `amd64` 架构，可根据需要选择。
 
-其中 armbian-trixie 基于 debian13，armbian-bookworm 基于 debian12，armbian-noble 基于 ubuntu24.04，armbian-jammy 基于 ubuntu22.04。
+其中 armbian-trixie 基于 debian13，armbian-bookworm 基于 debian12，armbian-noble 基于 ubuntu24.04，armbian-resolute 基于 ubuntu26.04。
 
 arm64 版本适用于 Amlogic/Rockchip/Allwinner 等平台架构的设备，amd64 版本适用于 x86_64 架构的电脑和服务器。
 
@@ -428,7 +431,7 @@ docker network create -d macvlan \
 
 #### 8.4.3 运行 Armbian Docker 容器
 
-这里以 `armbian-trixie:arm64` 镜像为例，介绍如何运行 Armbian 容器。
+以 `armbian-trixie:arm64` 镜像为例，说明如何运行 Armbian 容器。
 
 ```shell
 # 以后台方式运行 Armbian 容器
@@ -457,7 +460,7 @@ docker rm -f armbian-trixie
 
 ## 9. 编译 Armbian 内核
 
-支持在 Ubuntu，debian 或 Armbian 系统中编译内核。支持本地编译，也支持使用 GitHub Actions 云编译，具体方法详见 [内核编译说明](../../compile-kernel/README.cn.md)。
+支持在 Ubuntu、Debian 或 Armbian 系统中编译内核，同时支持本地编译和 GitHub Actions 云编译，具体方法详见 [内核编译说明](../../compile-kernel/README.cn.md)。
 
 ### 9.1 如何添加自定义内核补丁
 
@@ -476,7 +479,7 @@ docker rm -f armbian-trixie
 ```
 
 - 在本地编译内核时，可以手动创建相应目录，添加对应的自定义内核补丁。
-- 在 GitHub Actions 云编译时，可以使用 `kernel_patch` 参数指定内核补丁在你仓库中的目录，例如 [kernel](https://github.com/ophub/kernel) 仓库中 [compile-beta-kernel.yml](https://github.com/ophub/kernel/blob/main/.github/workflows/compile-beta-kernel.yml) 的使用方法：
+- 在 GitHub Actions 云编译时，可通过 `kernel_patch` 参数指定内核补丁在仓库中的目录，例如 [kernel](https://github.com/ophub/kernel) 仓库中 [compile-beta-kernel.yml](https://github.com/ophub/kernel/blob/main/.github/workflows/compile-beta-kernel.yml) 的使用方法：
 
 ```yaml
 - name: Compile the kernel
@@ -493,19 +496,21 @@ docker rm -f armbian-trixie
 
 ### 9.2 如何制作内核补丁
 
-- 从 [Armbian](https://github.com/armbian/build) 和 [OpenWrt](https://github.com/openwrt/openwrt) 等仓库中获得：例如 [armbian/patch/kernel](https://github.com/armbian/build/tree/main/patch/kernel/archive) 和 [openwrt/rockchip/patches-6.1](https://github.com/openwrt/openwrt/tree/main/target/linux/rockchip/patches-6.1)，[lede/rockchip/patches-5.15](https://github.com/coolsnowwolf/lede/tree/master/target/linux/rockchip/patches-5.15) 等等，这些使用主线内核的仓库中的补丁一般可以直接使用。
-- 从 github.com 仓库的 commits 中获得：在相应的 `commit` 地址后添加 `.patch` 后缀即可生成对应的补丁。
+- 从 [Armbian](https://github.com/armbian/build) 和 [OpenWrt](https://github.com/openwrt/openwrt) 等仓库获取：例如 [armbian/patch/kernel](https://github.com/armbian/build/tree/main/patch/kernel/archive) 和 [openwrt/rockchip/patches-6.1](https://github.com/openwrt/openwrt/tree/main/target/linux/rockchip/patches-6.1)，[lede/rockchip/patches-5.15](https://github.com/coolsnowwolf/lede/tree/master/target/linux/rockchip/patches-5.15) 等，这些基于主线内核的仓库中的补丁通常可直接使用。
+- 从 github.com 仓库的 commits 中获取：在对应的 `commit` 地址后添加 `.patch` 后缀即可生成补丁。
 
-在添加自定义内核补丁前，需要先和上游的内核源码仓库 [unifreq/linux-k.x.y](https://github.com/unifreq) 进行比较，确认此补丁是否已经添加，避免造成冲突。通过测试的内核补丁，建议向 unifreq 大佬维护的系列内核仓库进行提交。每人一小步，世界一大步，大家的贡献会让我们在盒子里使用 Armbian 和 OpenWrt 系统时更加稳定和有趣。
+添加自定义内核补丁前，需先与上游内核源码仓库 [unifreq/linux-k.x.y](https://github.com/unifreq) 进行比对，确认该补丁尚未被合入，以避免冲突。通过测试的内核补丁，建议向 unifreq 维护的系列内核仓库提交。社区的每一份贡献，都将使 Armbian 和 OpenWrt 系统更加稳定可靠。
 
 ### 9.3 如何自定义编译驱动模块
 
-在 linux 主线内核里，有些驱动尚未支持，可以自定义编译驱动模块。请选择支持在主线内核里使用的驱动，安卓驱动一般不支持主线内核，无法编译。举例如下：
+Linux 主线内核中部分驱动尚未内置，可自行编译驱动模块。请选择支持主线内核的驱动，安卓驱动通常不兼容主线内核，无法编译。参考帖子 [如何编译 rtl8189fs 驱动模块](https://github.com/ophub/amlogic-s9xxx-armbian/issues/3193)
+
+示例如下：
 
 ```shell
 # 第一步，更新最新内核
 # 由于早期的 header 文件不全，所以需要更新到最新的内核。
-# 各内核版本要求不低于 5.10.222, 5.15.163, 6.1.100, 6.6.41。
+# 各内核版本要求不低于 5.10.222, 5.15.163, 6.1.100, 6.6.41, 6.12, 6.18
 armbian-sync
 armbian-update -k 6.1
 
@@ -514,9 +519,9 @@ armbian-update -k 6.1
 mkdir -p /usr/local/toolchain
 cd /usr/local/toolchain
 # 下载编译工具
-wget https://github.com/ophub/kernel/releases/download/dev/arm-gnu-toolchain-14.3.rel1-aarch64-aarch64-none-linux-gnu.tar.xz
+wget https://github.com/ophub/kernel/releases/download/dev/arm-gnu-toolchain-15.3.rel1-aarch64-aarch64-none-linux-gnu.tar.xz
 # 解压
-tar -Jxf arm-gnu-toolchain-14.3.rel1-aarch64-aarch64-none-linux-gnu.tar.xz
+tar -Jxf arm-gnu-toolchain-15.3.rel1-aarch64-aarch64-none-linux-gnu.tar.xz
 # 安装其他编译依赖包（可选项，可根据错误提示手动安装缺少项）
 armbian-kernel -u
 
@@ -527,7 +532,7 @@ cd ~/
 git clone https://github.com/jwrdegoede/rtl8189ES_linux
 cd rtl8189ES_linux
 # 设置编译环境
-gun_file="arm-gnu-toolchain-14.3.rel1-aarch64-aarch64-none-linux-gnu.tar.xz"
+gun_file="arm-gnu-toolchain-15.3.rel1-aarch64-aarch64-none-linux-gnu.tar.xz"
 toolchain_path="/usr/local/toolchain"
 toolchain_name="gcc"
 export CROSS_COMPILE="${toolchain_path}/${gun_file//.tar.xz/}/bin/aarch64-none-linux-gnu-"
@@ -581,18 +586,19 @@ armbian-update
 | 可选参数  | 默认值        | 选项           | 说明                              |
 | -------- | ------------ | ------------- | -------------------------------- |
 | -r       | ophub/kernel | `<owner>/<repo>` | 设置从 github.com 下载内核的仓库  |
-| -u       | 自动化        | stable/flippy/beta/rk3588/rk35xx/h6 | 设置使用的内核的 [tags 后缀](https://github.com/ophub/kernel/releases) |
+| -u       | 自动化        | stable/flippy/beta/rk3588/rk35xx | 设置使用的内核的 [tags 后缀](https://github.com/ophub/kernel/releases) |
 | -k       | 最新版        | 内核版本       | 设置[内核版本](https://github.com/ophub/kernel/releases/tag/kernel_stable)  |
 | -b       | yes          | yes/no        | 更新内核时自动备份当前系统使用的内核    |
+| -d       | deb          | tar/deb       | 设置优先使用的内核包格式。若指定格式不存在，脚本将自动尝试另一种格式。如需编译自定义驱动推荐选择 `deb` 格式。 |
 | -m       | no           | yes/no        | 使用主线 u-boot                    |
 | -s       | 无           | 无/磁盘名称     | [SOS] 恢复 eMMC/NVMe/sdX 等磁盘中的系统内核 |
 | -h       | 无           | 无             | 查看使用帮助                       |
 
-举例: `armbian-update -k 5.15.50 -u stable`
+举例: `armbian-update -k 5.15 -u stable -d deb`
 
-通过 `-k` 参数指定内核版本号时，可以准确指定具体版本号，例如：`armbian-update -k 5.15.50`，也可以模糊指定到内核系列，例如：`armbian-update -k 5.15`，当模糊指定时将自动使用指定系列的最新版本。
+通过 `-k` 参数指定内核版本号时，既可精确指定版本号（如 `armbian-update -k 5.15.50`），也可指定内核系列（如 `armbian-update -k 5.15`），指定系列时将自动使用该系列的最新版本。
 
-更新内核时会自动备份当前系统使用的内核，存储路径在 `/ddbr/backup` 目录里，保留最近使用过的 3 个版本的内核，如果新安装的内核不稳定，可以随时恢复回备份的内核：
+更新内核时将自动备份当前使用的内核至 `/ddbr/backup` 目录，保留最近 3 个版本。若新内核不稳定，可随时恢复至备份版本：
 ```shell
 # 进入备份的内核目录，如 6.6.12
 cd /ddbr/backup/6.6.12
@@ -600,7 +606,7 @@ cd /ddbr/backup/6.6.12
 armbian-update
 ```
 
-[SOS]：因特殊原因导致的更新不完整等问题，造成系统无法从 eMMC/NVMe/sdX 启动时，可以从 USB 等其他磁盘启动任意内核版本的 Armbian 系统，然后运行 `armbian-update -s` 命令可以把 USB 中的系统内核更新至 eMMC/NVMe/sdX 中，实现救援的目的。不指定磁盘参数时，默认将从 USB 设备恢复 eMMC/NVMe/sdX 中的内核，如果设备有多个磁盘，可以准确指定需要恢复的磁盘名称，举例如下：
+[SOS]：当因异常情况导致更新不完整、系统无法从 eMMC/NVMe/sdX 启动时，可从 USB 等其他磁盘启动任意版本的 Armbian 系统，然后运行 `armbian-update -s` 命令将 USB 中的系统内核恢复至 eMMC/NVMe/sdX，实现系统救援。不指定磁盘参数时，默认从 USB 设备恢复 eMMC/NVMe/sdX 中的内核。若设备有多个磁盘，可精确指定目标磁盘名称，示例如下：
 
 ```shell
 # 恢复 eMMC 中的内核
@@ -615,15 +621,20 @@ armbian-update -s /dev/sda
 armbian-update -s
 ```
 
-如果你访问 github.com 的网络不通畅，无法在线下载更新时，可以手动下载内核，上传至 Armbian 系统的任意目录，并进入内核目录，执行 `armbian-update` 进行本地安装。如果当前目录下有成套的内核文件，将使用当前目录的内核进行更新（更新需要的 4 个内核文件是 `header-xxx.tar.gz`, `boot-xxx.tar.gz`, `dtb-xxx.tar.gz`, `modules-xxx.tar.gz`。其他内核文件不需要，如果同时存在也不影响更新，系统可以准确识别需要的内核文件）。在设备支持的可选内核里可以自由更新，如从 6.6.12 内核更新为 5.15.50 内核。
+如果您因网络问题无法访问 github.com 进行在线更新，可以手动下载内核文件并上传至 Armbian 系统的任意目录。随后进入该目录，运行 `armbian-update` 命令即可执行本地安装。若当前目录下存在完整的内核文件集，系统将优先使用本地文件进行更新。内核支持 `tar` 和 `deb` 两种格式，各自所需的 4 个核心文件如下：
 
-通过 `-r`/`-u`/`-b` 等参数设置的自定义选项，可以固定填写到个性化配置文件 `/etc/ophub-release` 的相关参数里，避免每次输入。对应设置为：
+- `tar` 格式更新所需的 4 个文件为：`header-xxx.tar.gz`，`boot-xxx.tar.gz`，`dtb-xxx.tar.gz`，`modules-xxx.tar.gz`。
+- `deb` 格式更新所需的 4 个文件为：`linux-image-xxx.deb`，`linux-dtb-xxx.deb`，`linux-headers-xxx.deb`，`linux-libc-dev-xxx.deb`。
+- 无需移除其他无关的内核文件，即使它们同时存在也不会影响更新，系统能够精准识别所需文件。在设备支持的内核范围内，您可以自由切换版本，例如从 6.6.12 内核变更为 5.15.50 内核。
+
+通过 `-r`/`-u`/`-b`/`-d` 等参数设置的自定义选项，可固化至配置文件 `/etc/ophub-release` 的相关参数中，无需每次手动输入。对应设置为：
 
 ```shell
 # 自定义修改参数的赋值
 -r  :  KERNEL_REPO='ophub/kernel'
 -u  :  KERNEL_TAGS='stable'
 -b  :  KERNEL_BACKUP='yes'
+-d  :  DOWNLOAD_TYPE='deb'
 ```
 
 ## 11. 安装常用软件
@@ -634,9 +645,9 @@ armbian-update -s
 armbian-software
 ```
 
-使用 `armbian-software -u` 命令可以更新本地的软件中心列表。根据用户在 [Issue](https://github.com/ophub/amlogic-s9xxx-armbian/issues) 中的需求反馈，逐步整合常用[软件](../build-armbian/armbian-files/common-files/usr/share/ophub/armbian-software/software-list.conf)，实现一键安装/更新/卸载等快捷操作。包括 `docker 镜像`、`桌面软件`、`应用服务` 等。详见更多[说明](armbian_software.md)。
+使用 `armbian-software -u` 命令可更新本地软件中心列表。根据用户在 [Issue](https://github.com/ophub/amlogic-s9xxx-armbian/issues) 中的反馈，逐步整合常用[软件](../build-armbian/armbian-files/common-files/usr/share/ophub/armbian-software/software-list.conf)，支持一键安装、更新和卸载。包括 `docker 镜像`、`桌面软件`、`应用服务` 等。详见更多[说明](armbian_software.md)。
 
-根据你所在的国家或地区，使用 `armbian-apt` 命令选择合适的软件源，提高软件的下载速度。例如，选择中国的清华大学源：
+根据所在国家或地区，使用 `armbian-apt` 命令选择合适的软件源以提高下载速度。例如，选择中国的清华大学源：
 
 ```shell
 armbian-apt
@@ -680,11 +691,11 @@ armbian-apt
 
 ## 12. 常见问题
 
-在 Armbian 的使用中，一些可能遇到的常见问题汇总如下。
+以下汇总了使用 Armbian 过程中可能遇到的常见问题。
 
 ### 12.1 每个盒子的 dtb 和 u-boot 对应关系表
 
-支持的电视盒子列表在 `Armbian` 系统中配置文件的位置为 [/etc/model_database.conf](../build-armbian/armbian-files/common-files/etc/model_database.conf)。
+支持的设备列表位于 Armbian 系统的配置文件 [/etc/model_database.conf](../build-armbian/armbian-files/common-files/etc/model_database.conf)。
 
 ### 12.2 LED 屏显示控制说明
 
@@ -694,19 +705,19 @@ armbian-apt
 
 通常使用 `armbian-ddbr` 对设备的安卓 TV 系统进行备份和恢复。
 
-除此之外也可以通过线刷的方法，将安卓系统刷入 eMMC 中，安卓系统的下载镜像可在 [Tools](https://github.com/ophub/kernel/releases/tag/tools) 中查找。
+此外，也可通过线刷方式将安卓系统写入 eMMC。安卓系统镜像可在 [Tools](https://github.com/ophub/kernel/releases/tag/tools) 中查找。
 
 #### 12.3.1 使用 armbian-ddbr 备份恢复
 
-建议您在全新的盒子里安装 Armbian 系统前，先对当前盒子自带的原安卓 TV 系统进行备份，以便在需要恢复系统时使用。请从 `TF/SD/USB` 启动 Armbian 系统，输入 `armbian-ddbr` 命令，然后根据提示输入 `b` 进行系统备份，备份文件的存放路径为 `/ddbr/BACKUP-arm-64-emmc.img.gz` ，请下载保存。在需要恢复安卓 TV 系统时，将之前备份的文件上传至 `TF/SD/USB` 设备的相同路径下，输入 `armbian-ddbr` 命令，然后根据提示输入 `r` 进行系统恢复。
+建议在安装 Armbian 系统前，先备份设备原有的安卓 TV 系统，以便后续需要时恢复。从 `TF/SD/USB` 启动 Armbian 系统后，输入 `armbian-ddbr` 命令，根据提示输入 `b` 执行备份，备份文件存放路径为 `/ddbr/BACKUP-arm-64-emmc.img.gz`，请妥善保存。需要恢复时，将备份文件上传至 `TF/SD/USB` 设备的相同路径，输入 `armbian-ddbr` 命令，根据提示输入 `r` 执行恢复。
 
 #### 12.3.2 使用 Amlogic 刷机工具恢复
 
-- 一般情况下，重新插入电源，如果可以从 USB 中启动，只要重新安装即可，多试几次。
+- 通常情况下，重新接入电源后若能从 USB 启动，重新安装即可，可多次尝试。
 
-- 如果接入显示器后，屏幕是黑屏状态，无法从 USB 启动，就需要进行盒子的短接初始化了。先将盒子恢复到原来的安卓系统，再重新刷入 Armbian 系统。首先下载 [amlogic_usb_burning_tool](https://github.com/ophub/kernel/releases/tag/tools) 系统恢复工具并安装好。准备一条 [USB 双公头数据线](https://user-images.githubusercontent.com/68696949/159267576-74ad69a5-b6fc-489d-b1a6-0f8f8ff28634.png)，准备一个 [曲别针](https://user-images.githubusercontent.com/68696949/159267790-38cf4681-6827-4cb6-86b2-19c7f1943342.png)。
+- 若接入显示器后屏幕黑屏且无法从 USB 启动，则需对设备进行短接初始化。先将设备恢复至原安卓系统，再重新刷入 Armbian。首先下载并安装 [amlogic_usb_burning_tool](https://github.com/ophub/kernel/releases/tag/tools) 系统恢复工具。准备一条 [USB 双公头数据线](https://user-images.githubusercontent.com/68696949/159267576-74ad69a5-b6fc-489d-b1a6-0f8f8ff28634.png)，准备一个 [曲别针](https://user-images.githubusercontent.com/68696949/159267790-38cf4681-6827-4cb6-86b2-19c7f1943342.png)。
 
-- 以 x96max+ 为例，在盒子的主板上确认 [短接点](https://user-images.githubusercontent.com/68696949/110590933-67785300-81b3-11eb-9860-986ef35dca7d.jpg) 的位置，下载盒子的 [Android TV 系统包](https://github.com/ophub/kernel/releases/tag/tools)。其他常见设备的安卓 TV 系统系统及对应的短接点示意图也可以在此[下载查看](https://github.com/ophub/kernel/releases/tag/tools)。
+- 以 x96max+ 为例，确认主板上[短接点](https://user-images.githubusercontent.com/68696949/110590933-67785300-81b3-11eb-9860-986ef35dca7d.jpg)的位置，下载设备的 [Android TV 系统包](https://github.com/ophub/kernel/releases/tag/tools)。其他常见设备的安卓 TV 系统及对应短接点示意图也可在此[下载查看](https://github.com/ophub/kernel/releases/tag/tools)。
 
 ```shell
 操作方法：
@@ -722,32 +733,32 @@ armbian-apt
 4. 当看到 [ 进度条 100% ], 则刷机完成，盒子已经恢复成 Android TV 系统。
    点击 [ 停止 ] 按钮, 拔掉 [ 盒子 ] 和 [ 电脑 ] 之间的 [ USB 双公头数据线] 。
 5. 如果以上某个步骤失败，就再来一次，直至成功。
-   如果进度条没有走动，可以尝试插入电源。通长情况下不用电源支持供电，只 USB 双公头的供电即可满足刷机要求。
+   如果进度条没有走动，可以尝试插入电源。通常情况下不用电源支持供电，只 USB 双公头的供电即可满足刷机要求。
 ```
 
-当完成恢复出厂设置，盒子已经恢复成 Android TV 系统，其他安装 Armbian 系统的操作，就和你之前第一次安装系统时的要求一样了，再来一遍即可。
+恢复出厂设置完成后，设备已还原为 Android TV 系统。后续安装 Armbian 的操作与首次安装相同，按原流程操作即可。
 
 ### 12.4 设置盒子从 USB/TF/SD 中启动
 
-根据自己盒子的情况，分别使用初次安装和重新安装 Armbian 系统的两种方法。
+根据实际情况，选择初次安装或重新安装 Armbian 系统的对应方法。
 
 #### 12.4.1 初次安装 Armbian 系统
 
-- 把刷好系统的 USB/TF/SD 插入盒子。
-- 开启开发者模式: 设置 → 关于本机 → 版本号 (如: X96max plus...), 在版本号上快速连击 5 次鼠标左键, 看到系统显示 `开启开发者模式` 的提示。
-- 开启 USB 调试模式: 系统 → 高级选选 → 开发者选项 (设置 `开启USB调试` 为启用)。启用 `ADB` 调试。
-- 安装 ADB 工具：下载 [adb](https://github.com/ophub/kernel/releases/tag/tools) 并解压，将 `adb.exe`，`AdbWinApi.dll`，`AdbWinUsbApi.dll` 三个文件拷⻉到 `c://windows/` 目录下的 `system32` 和 `syswow64` 两个文件夹内，然后打开 `cmd` 命令面板，使用 `adb --version` 命令，如果有显示就表示可以使用了。
-- 进入 `cmd` 命令模式。输入 `adb connect 192.168.1.137` 命令（其中的 ip 根据你的盒子修改，可以到盒子所接入的路由器设备里查看），如果链接成功会显示 `connected to 192.168.1.137:5555`
-- 输入 `adb shell reboot update` 命令，盒子将重启并从你插入的 USB/TF/SD 启动，从浏览器访问系统的 IP 地址，或者 SSH 访问即可进入系统。
+- 将写好系统的 USB/TF/SD 插入设备。
+- 开启开发者模式: 设置 → 关于本机 → 版本号 (如: X96max plus...), 快速点击版本号 5 次，直到系统显示 `开启开发者模式` 提示。
+- 开启 USB 调试模式: 系统 → 高级选项 → 开发者选项 (设置 `开启USB调试` 为启用)。启用 `ADB` 调试。
+- 安装 ADB 工具：下载 [adb](https://github.com/ophub/kernel/releases/tag/tools) 并解压，将 `adb.exe`，`AdbWinApi.dll`，`AdbWinUsbApi.dll` 三个文件复制到 `c://windows/` 目录下的 `system32` 和 `syswow64` 文件夹中。打开 `cmd` 命令面板，执行 `adb --version` 命令，若有输出则表示安装成功。
+- 进入 `cmd` 命令模式，输入 `adb connect 192.168.1.137` 命令（其中 IP 根据设备实际情况修改，可在路由器管理界面查看），连接成功后将显示 `connected to 192.168.1.137:5555`
+- 输入 `adb shell reboot update` 命令，设备将重启并从 USB/TF/SD 启动。通过浏览器访问系统 IP 地址或使用 SSH 连接即可进入系统。
 
 #### 12.4.2 重新安装 Armbian 系统
 
-- 正常情况下，直接把刷写好 Armbian 的 U 盘插入 USB 即可直接从 U 盘中启动。USB 启动比 eMMC 具有优先启动权。
-- 个别设备可能出现无法从 U 盘启动的现象，可以先把 eMMC 里 Armbian 系统 `/boot` 目录下的 `boot.scr` 文件改个名字，例如 `boot.scr.bak`，然后再插入 U 盘启动，这样就可以从 U 盘启动了。
+- 正常情况下，将写好 Armbian 的 U 盘插入 USB 即可直接启动，USB 启动优先于 eMMC。
+- 若个别设备无法从 U 盘启动，可将 eMMC 中 Armbian 系统 `/boot` 目录下的 `boot.scr` 文件重命名（如 `boot.scr.bak`），再插入 U 盘即可正常启动。
 
 ### 12.5 禁用红外接收器
 
-默认情况下启用对红外接收器的支持，但如果您将电视盒用作服务器，那么您可能希望禁用 IR 内核模块以防止错误地关闭您的盒子。 要完全禁用 IR，请添加以下行：
+系统默认启用红外接收器支持。若将设备用作服务器，建议禁用 IR 内核模块以防止误触关机。完全禁用 IR 的方法：添加以下内容
 
 ```shell
 blacklist meson_ir
@@ -757,9 +768,9 @@ blacklist meson_ir
 
 ### 12.6 启动引导文件的选择
 
-- 目前已知的设备中，只有 `T95(s905x)` / `T95Z-Plus(s912)` / `BesTV-R3300L(s905l-b)` 等少数设备需要使用 `/bootfs/extlinux/extlinux.conf` 文件，已经在系统里默认添加了。其他设备如果需要，可以将系统写入 USB 后，双击打开 `boot` 分区，将系统自带的 `/boot/extlinux/extlinux.conf.bak` 文件名称中的 `.bak` 删除即可使用。当写入 eMMC 时 `armbian-install` 会自动检查，如果存在 `extlinux.conf` 文件，会自动创建。
+- 目前已知设备中，仅 `T95(s905x)` / `T95Z-Plus(s912)` / `BesTV-R3300L(s905l-b)` 等少数设备需要使用 `/bootfs/extlinux/extlinux.conf` 文件，系统已默认添加。其他设备如有需要，将系统写入 USB 后打开 `boot` 分区，将系统自带的 `/boot/extlinux/extlinux.conf.bak` 文件名称中的 `.bak` 删除即可使用。写入 eMMC 时，`armbian-install` 会自动检查并在 `extlinux.conf` 文件存在时自动创建。
 
-- 其他设备只需要 `/boot/uEnv.txt` 即可启动，不要修改 `extlinux.conf.bak` 文件。
+- 其他设备仅需 `/boot/uEnv.txt` 即可启动，请勿修改 `extlinux.conf.bak` 文件。
 
 ### 12.7 网络设置
 
@@ -829,7 +840,7 @@ iface lo inet loopback
 
 ###### 12.7.2.1.1 获取网络接口名称
 
-查看设备中有哪些网络接口可以用来建立网络连接。
+查看设备中可用的网络接口。
 
 ```shell
 nmcli device | grep -E "^[e].*|^[w].*|^[D].*|^[T].*" | awk '{printf "%-19s%-19s\n",$1,$2}'
@@ -851,7 +862,7 @@ wlan1              wifi
 
 ###### 12.7.2.1.2 获取现有网络连接名称
 
-查看设备现有哪些网络连接, 包含使用中和未使用的连接。在新建网络连接时, 不建议使用已经存在的连接名称。
+查看设备现有的网络连接（包含已启用和未启用的连接）。新建连接时，建议使用不同于现有连接的名称。
 
 ```shell
 nmcli connection show | grep -E ".*|^[N].*" | awk '{printf "%-19s%-19s\n", $1,$3}'
@@ -1108,7 +1119,7 @@ net.ipv6.conf.lo.disable_ipv6 = 1
 
 #### 12.7.3 如何启用无线
 
-有的设备支持使用无线，启用方法如下：
+部分设备支持无线网络。关于无线 AP 模式的使用方法，请参考[说明](https://github.com/ophub/amlogic-s9xxx-armbian/issues/3610#issuecomment-5161303377)；配合开启 DHCP 服务的配置方法，请参考[说明](https://github.com/ophub/amlogic-s9xxx-armbian/issues/3610#issuecomment-5162533992)。关于无线客户端（Client）模式的使用方法，请参见以下说明：
 
 ```shell
 # 安装管理工具
@@ -1142,7 +1153,7 @@ sudo nmcli connection delete "wifi名称"
 
 #### 12.7.4 如何启用蓝牙
 
-有的设备支持使用蓝牙，启用方法如下：
+部分设备支持蓝牙，启用方法如下：
 
 ```shell
 # 安装蓝牙支持
@@ -1152,7 +1163,7 @@ armbian-config >> Network >> BT: Install Bluetooth support
 reboot
 ```
 
-系统重启后，查看蓝牙驱动是否正常。桌面系统的可以在菜单里连接蓝牙设备。也可以使用终端图形界面安装。
+系统重启后，检查蓝牙驱动是否正常加载。桌面系统可通过菜单连接蓝牙设备，也可通过终端命令操作。
 
 ```shell
 dmesg | grep Bluetooth
@@ -1210,13 +1221,13 @@ bluetoothctl block 12:34:56:78:90:AB
 
 ### 12.8 如何添加开机启动任务
 
-系统中已经添加了自定义开机启动任务脚本文件，在 Armbian 系统中的路径是 [/etc/custom_service/start_service.sh](../build-armbian/armbian-files/common-files/etc/custom_service/start_service.sh) 文件，可以根据个人需求在该脚本中自定义添加相关任务。
+系统已内置自定义开机启动任务脚本，路径为 [/etc/custom_service/start_service.sh](../build-armbian/armbian-files/common-files/etc/custom_service/start_service.sh)，可根据个人需求在该脚本中添加自定义任务。
 
 ### 12.9 如何更新系统中的服务脚本
 
-使用 `armbian-sync` 命令可以一键将本地系统中的全部服务脚本更新到最新版本。
+使用 `armbian-sync` 命令可一键将本地系统中的全部服务脚本更新至最新版本。
 
-如果 `armbian-sync` 更新失败，说明这个命令的版本过旧，可以使用下面的方法更新这个命令：
+若 `armbian-sync` 更新失败，可能因命令版本过旧，可通过以下方法手动更新：
 
 ```shell
 wget https://raw.githubusercontent.com/ophub/amlogic-s9xxx-armbian/main/build-armbian/armbian-files/common-files/usr/sbin/armbian-sync -O /usr/sbin/armbian-sync
@@ -1228,7 +1239,7 @@ armbian-sync
 
 ### 12.10 如何获取 eMMC 上的安卓系统分区信息
 
-我们将 Armbian 系统写入 eMMC 系统时，需要首先确认设备的安卓系统分区表，确保将数据写入至安全区域，尽量不要破坏安卓系统分区表，以免造成系统无法启动等问题。如果写入了不安全的区域，会无法启动，或出现类似下面的错误：
+将 Armbian 系统写入 eMMC 时，需先确认设备的安卓系统分区表，确保数据写入安全区域，避免破坏原分区表导致系统无法启动。若写入了不安全的区域，可能无法启动或出现如下错误：
 
 <div style="width:100%;margin-top:40px;margin:5px;">
 <img width="800" alt="image" src="https://user-images.githubusercontent.com/68696949/187075834-4ac40263-52ae-4538-a4b1-d6f0d5b9c856.png">
@@ -1236,7 +1247,7 @@ armbian-sync
 
 #### 12.10.1 获取分区信息
 
-如果你使用的是 2022.11 之后本仓库中发布的 Armbian，你可以复制粘贴以下命令来获得一个记录完整分区信息的网址（设备本身并不需要联网）
+若使用 2022.11 之后本仓库发布的 Armbian，可复制粘贴以下命令获取包含完整分区信息的网址（设备本身无需联网）
 
 ```shell
 ampart /dev/mmcblk2 --mode webreport 2>/dev/null
@@ -1248,13 +1259,13 @@ ampart /dev/mmcblk2 --mode webreport 2>/dev/null
 echo "https://7ji.github.io/ampart-web-reporter/?dsnapshot=$(ampart /dev/mmcblk2 --mode dsnapshot 2>/dev/null | head -n 1)&esnapshot=$(ampart /dev/mmcblk2 --mode esnapshot 2>/dev/null | head -n 1)"
 ```
 
-得到的网址将会类似于下面这样：
+生成的网址格式类似如下：
 
 ```shell
 https://7ji.github.io/ampart-web-reporter/?esnapshot=bootloader:0:4194304:0%20reserved:37748736:67108864:0%20cache:113246208:754974720:2%20env:876609536:8388608:0%20logo:893386752:33554432:1%20recovery:935329792:33554432:1%20rsv:977272832:8388608:1%20tee:994050048:8388608:1%20crypt:1010827264:33554432:1%20misc:1052770304:33554432:1%20instaboot:1094713344:536870912:1%20boot:1639972864:33554432:1%20system:1681915904:1073741824:1%20params:2764046336:67108864:2%20bootfiles:2839543808:754974720:2%20data:3602907136:4131389440:4&dsnapshot=logo::33554432:1%20recovery::33554432:1%20rsv::8388608:1%20tee::8388608:1%20crypt::33554432:1%20misc::33554432:1%20instaboot::536870912:1%20boot::33554432:1%20system::1073741824:1%20cache::536870912:2%20params::67108864:2%20data::-1:4
 ```
 
-将这个网址复制到你的浏览器打开，即可看到格式清晰明了的 DTB 分区信息和 eMMC 分区信息：
+将此网址复制到浏览器打开，即可查看格式清晰的 DTB 分区信息和 eMMC 分区信息：
 
 <div style="width:100%;margin-top:40px;margin:5px;">
 <img width="800" alt="image" src="https://user-images.githubusercontent.com/24390674/216287642-e1b7be27-4d2c-4ac3-9fcc-15e06aebb97e.png">
@@ -1263,18 +1274,18 @@ https://7ji.github.io/ampart-web-reporter/?esnapshot=bootloader:0:4194304:0%20re
 
 #### 12.10.2 分区信息分享
 
-当你需要分享分区信息给其他人时（比如，发布到本仓库以来汇报某一新设备的情况，或者寻求他人的帮助），尽量分享网址本身，而不是截图。如果介意网址太长，可以借用一些免费的短网址工具。
+需要向他人分享分区信息时（如向本仓库汇报新设备情况或寻求帮助），请优先分享网址而非截图。若网址过长，可使用免费的短链接服务。
 
-- 一方面，网页上的分区信息在每次访问时都会动态生成，对于某些分区是否能写入的标注，以及表格的格式等都可能会更新。
-- 另一方面，从截图中其他人也不能方便地复制分区参数做计算等。
+- 一方面，网页上的分区信息每次访问时均会动态生成，分区可写入的标注及表格格式等可能随时更新。
+- 另一方面，截图中的分区参数无法被方便地复制用于计算。
 
-另外，也不需要额外地将参数整理到表格文件，网页上表格的布局已经特意设计为仅需复制粘贴就可以导入到 Excel 或者 LibreOffice Calc 中。
+此外，无需额外将参数整理为表格文件，网页表格布局已专门设计为可直接复制粘贴导入 Excel 或 LibreOffice Calc。
 
 #### 12.10.3 分区信息解读
 
-DTB 表是安卓 DTB 中记录的每个盒子**系统**希望的分区布局，这一布局里一般会以一个大小为自动填充的 `data` 分区为结尾，所以同系统（也必然包括同型号）的盒子，这里的布局必然是相同的。盒子上实际的分区布局会因为 eMMC 的容量不同而各有差别，但总是由 DTB 的分区布局所决定的（即已知 DTB 分区布局 +eMMC 准确大小，必然可推知 eMMC 分区情况。 *上面的 DTB 分区信息和 eMMC 分区信息并非来自同一个盒子，你看出来了吗？*）。
+DTB 表记录了安卓 DTB 中每台设备**系统**期望的分区布局，通常以一个大小为自动填充的 `data` 分区结尾。因此，相同系统（必然包括同型号）的设备，DTB 分区布局一定相同。设备上实际的分区布局因 eMMC 容量不同而有所差异，但始终由 DTB 分区布局决定（即已知 DTB 分区布局 +eMMC 准确大小，必然可推知 eMMC 分区情况。 *上面的 DTB 分区信息和 eMMC 分区信息并非来自同一个盒子，你看出来了吗？*）。
 
-eMMC 表是盒子上实际的 eMMC 分区布局。其中每一行表示一块存储区域，这一存储区域既可能是一个分区，也可能是分区间的空隙（因为晶晨的诡异决策，每个分区之间都至少有 8M 的空隙，计划留作他用，结果到最新的 S905X4 都没有用上，十分浪费空间）。对应分区的行中，字体为黑色，且偏移和掩码栏均有数值；对应空隙的行中，字体为灰色，偏移和掩码栏没有数值，且分区名为 `gap` 。
+eMMC 表是设备上实际的 eMMC 分区布局。其中每一行表示一块存储区域，该区域可能是一个分区，也可能是分区间的间隙（由于晶晨的设计决策，每个分区之间至少有 8M 的间隙，原计划留作他用，但直至 S905X4 仍未使用，造成空间浪费）。对应分区的行中，字体为黑色，且偏移和掩码栏均有数值；对应空隙的行中，字体为灰色，偏移和掩码栏没有数值，且分区名为 `gap` 。
 
 eMMC 表中，每一块存储区域的最后一栏为可写入的情况，绿色且 `yes` 表示这一区域可以写入，红色且 `no` 表示这一区域绝对不可以写入，黄色且有标注则表示某前提的下可以写入，或者只有部分可以写入。
 
@@ -1293,11 +1304,11 @@ eMMC 表中，每一块存储区域的最后一栏为可写入的情况，绿色
 
 #### 12.10.4 用于 eMMC 安装
 
-如果你的设备在使用 `armbian-install` 且 `-a` 参数（使用 [ampart](https://github.com/7Ji/ampart) 调整 eMMC 分区布局）为 `yes`（默认值）的情况下失败，则你的盒子不能使用最优化的布局（即把 DTB 分区信息调整为只有 `data` ，再由此生成 eMMC 分区信息，然后将所有还存在的分区均向前挪动，如此一来，117M 向后的空间便均可使用），你需要在 [armbian-install](../build-armbian/armbian-files/common-files/usr/sbin/armbian-install) 中修改对应的分区信息。
+若设备在使用 `armbian-install` 且 `-a` 参数（使用 [ampart](https://github.com/7Ji/ampart) 调整 eMMC 分区布局）为 `yes`（默认值）时失败，则该设备无法使用最优分区布局（即把 DTB 分区信息调整为只有 `data` ，再由此生成 eMMC 分区信息，然后将所有还存在的分区均向前挪动，如此一来，117M 向后的空间便均可使用），你需要在 [armbian-install](../build-armbian/armbian-files/common-files/usr/sbin/armbian-install) 中修改对应的分区信息。
 
-此文件中，声明分区布局的关键参数有三个：`BLANK1`, `BOOT`, `BLANK2`。其中 `BLANK1` 表示从 eMMC 开头算起的不能使用的大小；`BOOT` 表示在 `BLANK1` 以后创建的用来存放内核、DTB 等的分区的大小，最好不要小于 256M，`BLANK2` 表示 `BOOT` 以后不能使用的大小；在此之后的空间会全部用来创建 `ROOT` 分区，储存整个系统中 `/boot` 挂载点以外的数据。三者均应为整数，且单位为MiB (1 MiB = 1024 KiB = 1024^2 Byte)
+此文件中，声明分区布局的关键参数有三个：`BLANK1`, `BOOT`, `BLANK2`。其中 `BLANK1` 表示从 eMMC 开头算起的不可使用的大小；`BOOT` 表示 `BLANK1` 之后用于存放内核、DTB 等文件的分区大小，建议不小于 256M；`BLANK2` 表示 `BOOT` 之后不可使用的大小；在此之后的空间会全部用来创建 `ROOT` 分区，储存整个系统中 `/boot` 挂载点以外的数据。三者均应为整数，且单位为MiB (1 MiB = 1024 KiB = 1024^2 Byte)
 
-讨论上一段中不需要 `logo` 分区的情况，我们自然希望将所有能使用的空间全部使用，但是 `4M~36M` 的区域由于太小，不能用作 `BOOT`，所以只能将它算在不能用的 `BLANK1` 里面。而 `100M~836M` 的区域，用作 `BOOT` 绰绰有余，则可以将这 736M 全部分配给 `BOOT`。此后再有 `836M~837M` 的不能使用区域，便算给 `BLANK2` ，那么应该使用的参数就应该如下（下文仅以 `s905x3` 为例，若你的 SoC 为其他，需要修改其他的对应代码块）：
+以上述不需要 `logo` 分区的情况为例，为充分利用所有可用空间，由于 `4M~36M` 区域过小无法用作 `BOOT`，只能将其计入 `BLANK1`。`100M~836M` 区域足以用作 `BOOT`，可将其 736M 全部分配给 `BOOT`。其后 `836M~837M` 的不可用区域计入 `BLANK2`，相应参数配置如下（以 `s905x3` 为例，其他 SoC 需修改对应代码块）：
 
 ```shell
 # Set partition size (Unit: MiB)
@@ -1309,17 +1320,17 @@ elif [[ "${AMLOGIC_SOC}" == "s905x3" ]]; then
 
 ### 12.11 如何制作 u-boot 文件
 
-u-boot 文件是引导系统正常启动的重要文件。Amlogic，Allwinner 和 Rockchip 设备在获取源码和编译流程上略有不同。
+u-boot 是引导系统启动的关键文件。Amlogic、Allwinner 和 Rockchip 设备在源码获取和编译流程上略有差异。
 
 #### 12.11.1 如何制作 Amlogic 设备的 u-boot 文件
 
-由于 Amlogic 系列的设备厂商大多数都是闭源的，所以我们需要从设备上提取 u-boot 相关文件，然后再进行编译。这里介绍的方法来自 [unifreq](https://github.com/unifreq) 大佬分享的制作教程。
+由于 Amlogic 系列设备厂商大多不开源，需先从设备上提取 u-boot 相关文件，再进行编译。以下方法来自 [unifreq](https://github.com/unifreq) 分享的制作教程。
 
 ##### 12.11.1.1 如何提取 bootloader 和 dtb 文件
 
-提取需要使用 HxD 软件。可以从 [官网下载链接](https://mh-nexus.de/en/downloads.php?product=HxD20) 或 [备份下载链接](https://github.com/ophub/kernel/releases/download/tools/HxDSetup.2.5.0.0.zip) 获取安装。
+提取过程需使用 HxD 软件，可从 [官网下载链接](https://mh-nexus.de/en/downloads.php?product=HxD20) 或 [备份下载链接](https://github.com/ophub/kernel/releases/download/tools/HxDSetup.2.5.0.0.zip) 获取并安装。
 
-在 `cmd` 面板中依次执行以下命令提取相关文件，并下载到本地电脑。
+在 `cmd` 面板中依次执行以下命令提取相关文件并下载至本地。
 
 ```shell
 # 使用 adb 工具进入盒子
@@ -1343,7 +1354,7 @@ adb pull /data/local/mybox_gpio.txt C:\mybox
 
 ##### 12.11.1.2 如何制作 acs.bin 文件
 
-主线 u-boot 最重要的是 acs.bin，用于初始化内存的部分，原厂 u-boot 位于系统最前面的 4MB 位置。使用刚才获得的 `bootloader.bin` 文件提取 `acs.bin` 文件。
+主线 u-boot 中最关键的是 acs.bin 文件，用于内存初始化，原厂 u-boot 位于系统起始 4MB 区域。使用前面获取的 `bootloader.bin` 提取 `acs.bin` 文件。
 
 打开 HxD 软件，打开上面导出的 `bootloader.bin` 文件，`右键 - 选择范围`，起始位置 `F200`，长度 `1000`，选`十六进制`。
 
@@ -1357,19 +1368,19 @@ adb pull /data/local/mybox_gpio.txt C:\mybox
 <img width="600" alt="image" src="https://user-images.githubusercontent.com/68696949/187056852-9f62f16a-f7f1-4c34-a2c2-78358d198f9a.png">
 </div>
 
-如果是锁了 bootloader 的话这个区域的代码是是乱码就没用了。正常的应该像上图中这样有很多 `0` ，有 `cfg` 会连续出现几次，中间会出现 `ddr` 相关的字样，这种正常代码就是可以使用的。
+若 bootloader 已锁定，则该区域的代码将显示为乱码，无法使用。正常情况下，该区域应包含大量 `0`，`cfg` 会连续出现数次，并夹杂 `ddr` 相关字样，此类代码为有效可用数据。
 
 ##### 12.11.1.3 如何编译 u-boot 文件
 
-制作 u-boot 需要 https://github.com/unifreq/amlogic-boot-fip 和 https://github.com/unifreq/u-boot 这两个源码库，编译自己盒子的两个 u-boot 文件。
+制作 u-boot 需要 https://github.com/unifreq/amlogic-boot-fip 和 https://github.com/unifreq/u-boot 两个源码仓库，用于编译设备所需的 u-boot 文件。
 
-在 amlogic-boot-fip 源码里面每个机型只有 acs.bin 这个文件是不同的，其它的文件都可以通用。
+在 amlogic-boot-fip 源码中，各机型仅 acs.bin 文件不同，其余文件通用。
 
 <img width="600" alt="image" src="https://user-images.githubusercontent.com/68696949/187057209-c4716384-46ef-4922-9710-8da7ae6db1e4.png">
 
-制作 u-boot 的方法详见 https://github.com/unifreq/u-boot/tree/master/doc/board/amlogic 里的具体说明，选择自己设备的型号进行编译测试。
+制作方法详见 https://github.com/unifreq/u-boot/tree/master/doc/board/amlogic 中的说明，选择对应设备型号进行编译测试。
 
-根据 [unifreq](https://github.com/unifreq) 的方法制作 u-boot 需要用到盒子的 acs.bin，dts 和 config 文件。其中安卓系统导出来的 dts 不能直接转换成 Armbian 的格式，需要自己编写一个对应的 dts 文件。根据自己设备具体硬件上的区别部分，比如开关、led、电源控制、tf卡、sdio wifi模块等，使用内核源码库中相似的 [dts](https://github.com/unifreq/linux-5.15.y/tree/main/arch/arm64/boot/dts/amlogic) 文件进行修改制作。
+根据 [unifreq](https://github.com/unifreq) 的方法制作 u-boot，需要使用设备的 acs.bin、dts 和 config 文件。其中安卓系统导出的 dts 无法直接转换为 Armbian 格式，需自行编写对应的 dts 文件。根据设备的具体硬件差异（如开关、LED、电源控制、TF 卡、SDIO WiFi 模块等），参照内核源码库中相似的 [dts](https://github.com/unifreq/linux-5.15.y/tree/main/arch/arm64/boot/dts/amlogic) 文件进行修改。
 
 以制作 X96Max Plus 的 u-boot 为例：
 
@@ -1401,22 +1412,22 @@ adb pull /data/local/mybox_gpio.txt C:\mybox
         └── other-source-files...
 ```
 
-- 下载 [amlogic-boot-fip](https://github.com/unifreq/amlogic-boot-fip) 源码。在根目录创建 [x96max-plus](https://github.com/unifreq/amlogic-boot-fip/tree/master/x96max-plus) 目录，里面的文件除了自己制作的 `asc.bin` 文件外，其他文件可以从其他目录下复制。
+- 下载 [amlogic-boot-fip](https://github.com/unifreq/amlogic-boot-fip) 源码。在根目录创建 [x96max-plus](https://github.com/unifreq/amlogic-boot-fip/tree/master/x96max-plus) 目录，其中除自行制作的 `asc.bin` 文件外，其余文件可从其他目录复制。
 - 下载 [u-boot](https://github.com/unifreq/u-boot) 源码。制作对应的 [x96max-plus_defconfig](https://github.com/unifreq/u-boot/blob/master/configs/x96max-plus_defconfig) 文件放入 [configs](https://github.com/unifreq/u-boot/tree/master/configs) 目录。制作对应的 [meson-sm1-x96-max-plus-u-boot.dtsi](https://github.com/unifreq/u-boot/blob/master/arch/arm/dts/meson-sm1-x96-max-plus-u-boot.dtsi) 和 [meson-sm1-x96-max-plus.dts](https://github.com/unifreq/u-boot/blob/master/arch/arm/dts/meson-sm1-x96-max-plus.dts) 文件放入 [arch/arm/dts](https://github.com/unifreq/u-boot/tree/master/arch/arm/dts) 目录，并编辑此目录中的 [Makefile](https://github.com/unifreq/u-boot/blob/master/arch/arm/dts/Makefile) 文件，添加 `meson-sm1-x96-max-plus.dtb` 文件的索引。
-- 进入 u-boot 源码目录根目录下，根据文档 https://github.com/unifreq/u-boot/blob/master/doc/board/amlogic/x96max-plus.rst 中的步骤操作。
+- 进入 u-boot 源码根目录，按照文档 https://github.com/unifreq/u-boot/blob/master/doc/board/amlogic/x96max-plus.rst 中的步骤操作。
 
-最终生成的文件有两类：在 u-boot 根目录下的 `u-boot.bin` 文件是 `/boot` 目录下使用的不完整版 u-boot（对应仓库中的 [overload](https://github.com/ophub/u-boot/tree/main/u-boot/amlogic/overload) 目录）；在 `fip` 目录下的 `u-boot.bin` 和 `u-boot.bin.sd.bin` 是 `/usr/lib/u-boot/` 目录下使用的完整版 u-boot 文件（对应仓库中的 [bootloader](https://github.com/ophub/u-boot/tree/main/u-boot/amlogic/bootloader) 目录），完整版的两个文件相差 512 字节，大的那个是填充了 512 字节的 0 在前面。
+最终生成两类文件：u-boot 根目录下的 `u-boot.bin` 为 `/boot` 目录使用的精简版 u-boot（对应仓库中的 [overload](https://github.com/ophub/u-boot/tree/main/u-boot/amlogic/overload) 目录）；在 `fip` 目录下的 `u-boot.bin` 和 `u-boot.bin.sd.bin` 是 `/usr/lib/u-boot/` 目录下使用的完整版 u-boot 文件（对应仓库中的 [bootloader](https://github.com/ophub/u-boot/tree/main/u-boot/amlogic/bootloader) 目录），完整版两个文件相差 512 字节，较大的文件在头部填充了 512 字节的 0。
 
 <div style="width:100%;margin-top:40px;margin:5px;">
 <img width="400" alt="image" src="https://user-images.githubusercontent.com/68696949/189039426-c127631f-77ca-4fcb-9fb6-4220045d712b.png">
 <img width="400" alt="image" src="https://user-images.githubusercontent.com/68696949/189029320-e43a4cc9-b4b5-4de4-92fe-b17bd29020d0.png">
 </div>
 
-💡提示：在写入 eMMC 进行测试前，请先查看 12.3 的救砖方法。务必掌握短接点位置，有原厂 .img 格式的安卓系统文件，并进行过短接刷机测试，确保救砖方法都已经掌握的情况下再进行写入测试。
+💡提示：写入 eMMC 测试前，请先阅读 12.3 节的救砖方法。务必确认已掌握短接点位置、备有原厂 .img 格式的安卓系统文件，并已成功测试短接刷机流程后，方可进行写入测试。
 
 #### 12.11.2 如何制作 Rockchip 设备的 u-boot 文件
 
-由于 Rockchip 设备的大部分厂商都开放了他们的 u-boot 源码，所以可以比较方便地从厂商的源码库中获取到相关的 u-boot 源码，然后进行编译。同时一些开源大佬们也分享了很多更易使用的 u-boot 编译脚本，下面以几个实例介绍几种编译方法。
+Rockchip 设备的大部分厂商已开源 u-boot 源码，可在厂商源码仓库中获取并编译。同时，一些开源贡献者也分享了便捷的 u-boot 编译脚本，以下通过实例介绍几种编译方法。
 
 ##### 12.11.2.1 如何使用 Radxa 的 u-boot 制作脚本
 
@@ -1451,11 +1462,11 @@ cd ~/rk3588-sdk
 └── u-boot.itb
 ```
 
-通过在 [radxa/build](https://github.com/radxa/build) 源码的 `board_configs.sh` 和 `mk-uboot.sh` 里添加更多选项，可以编译其他设备的 u-boot 文件，例如我编译 [Beelink-IPC-R(rk3588)](https://github.com/ophub/amlogic-s9xxx-openwrt/issues/415#issuecomment-1508234307) 设备的使用方法。
+通过在 [radxa/build](https://github.com/radxa/build) 源码的 `board_configs.sh` 和 `mk-uboot.sh` 中添加更多选项，可编译其他设备的 u-boot 文件。例如编译 [Beelink-IPC-R(rk3588)](https://github.com/ophub/amlogic-s9xxx-openwrt/issues/415#issuecomment-1508234307) 设备的方法。
 
 ##### 12.11.2.2 如何使用 cm9vdA 的 u-boot 制作脚本
 
-cm9vdA 在他的 [cm9vdA/build-linux](https://github.com/cm9vdA/build-linux) 开源项目里提供了编译 u-boot 和 kernel 的脚本和使用方法，我在一些 Rockchip 设备的 u-boot 编译中使用了他的项目并进行了过程记录，摘录部分以供参考。
+cm9vdA 的开源项目 [cm9vdA/build-linux](https://github.com/cm9vdA/build-linux) 提供了编译 u-boot 和 kernel 的脚本及使用方法。以下为部分 Rockchip 设备 u-boot 编译的过程记录，摘录供参考。
 
 - 编译 Lenovo-Leez-P710(rk3399) 设备的 u-boot：[Link](https://github.com/ophub/amlogic-s9xxx-armbian/issues/1609#issuecomment-1681494735)
 - 编译 DLFR100(rk3399) 设备的 u-boot：[Link](https://github.com/ophub/amlogic-s9xxx-armbian/issues/1522#issuecomment-1622919423)
@@ -1464,13 +1475,15 @@ cm9vdA 在他的 [cm9vdA/build-linux](https://github.com/cm9vdA/build-linux) 开
 
 ### 12.12 内存大小识别错误
 
-如果内存大小识别不正确（4G内存识别为1-2G是不正常，识别为3.7G是正常），可以尝试手动复制一份 `/boot/UBOOT_OVERLOAD` 文件（注意是`复制`一份，`不要改名`，改名后安装与更新等操作后将无法启动），在 `USB` 中使用时另存为 `/boot/u-boot.ext`，在 `eMMC` 中使用时另存为 `/boot/u-boot.emmc`。
+若内存大小识别不正确（4G 内存识别为 1-2G 属异常，识别为 3.7G 属正常），可尝试手动复制 `/boot/UBOOT_OVERLOAD` 文件（注意是`复制`而非`改名`，改名后安装或更新操作将导致无法启动）：USB 中使用时保存为 `/boot/u-boot.ext`，eMMC 中使用时保存为 `/boot/u-boot.emmc`。
 
-除了想尝试解决内存的问题外，不要手动复制 u-boot 文件，添加不正确会导致无法启动以及出现各种问题。
+除排查内存识别问题外，请勿手动复制 u-boot 文件，错误操作可能导致无法启动或其他问题。
 
 ### 12.13 如何反编译 dtb 文件
 
-有些新设备不在目前的支持列表（或有变异体），可以通过反编译，调整相关参数进行尝试。
+#### 12.13.1 直接反编译 dtb 文件
+
+可以直接对已有的 dtb 文件进行反编译，通过调整相关参数进行适配。
 
 ```shell
 # 安装依赖
@@ -1483,25 +1496,37 @@ dtc -I dtb -O dts -o xxx.dts xxx.dtb
 # 2. 编译命令（使用 dts 编译生成 dtb 文件）
 dtc -I dts -O dtb -o xxx.dtb xxx.dts
 
-# 3.保存数据并重启
+# 3.保存并重启
 sync && reboot
-
-# 4.[自选动作]根据需求进行测试
-# 例如在解决 12.16 中介绍的问题时，重新安装测试
-armbian-install
 ```
+
+#### 12.13.2 从运行中的设备导出完全态 DTS（推荐）
+
+在某些设备的适配与维护过程中，我们可能只能获取到编译后的二进制设备树文件（.dtb），而缺失对应的内核源码（.dts）。此时，建议在正常运行的 Armbian 系统中执行以下命令，直接从内核运行时环境中反编译并导出当前生效的设备树：
+
+```shell
+dtc -I fs -O dts /sys/firmware/devicetree/base > my_runtime.dts
+```
+
+该命令直接从内核内存中提取设备树数据，其导出的文本比单纯反编译磁盘上的静态 .dtb 文件更为准确和完整。因为引导加载程序（如 U-Boot）或系统固件在启动阶段，会根据实际的硬件检测结果对设备树进行动态修正或注入（例如：实时更新 bootargs 启动参数、动态开关特定外设的 status 状态、或调整 reg 寄存器地址等）。如果直接反编译磁盘上的静态文件，将无法捕获这些运行时改动。
+
+采用此方法获取的是内核最终应用形态的运行态（Runtime）设备树，能真实反映硬件在系统底层的实际拓扑与工作状态。在参考、修复或重新适配该设备的 .dts 源码时，此文件具有极高的参考价值，能让排查冲突和补全外设配置变得更加准确和高效。
 
 ### 12.14 如何修改 cmdline 设置
 
-在 Amlogic 设备中，可以在 `/boot/uEnv.txt` 文件中进行添加/修改/删除等设置。在 Rockchip 和 Allwinner 设备中在 `/boot/armbianEnv.txt` 文件中进行设置（添加至 `extraargs` 或 `extraboardargs` 参数里）。使用 `/boot/extlinux/extlinux.conf` 的设备在这个文件里配置。每次更改后要重启才能生效。
+Amlogic 设备在 `/boot/uEnv.txt` 文件中配置。Rockchip 和 Allwinner 设备在 `/boot/armbianEnv.txt` 文件中配置（添加至 `extraargs` 或 `extraboardargs` 参数）。使用 `/boot/extlinux/extlinux.conf` 的设备在该文件中配置。每次修改后需重启生效。
 
-- 比如 `Home Assistant Supervisor` 应用只支持 `docker cgroup v1` 版本，而目前 docker 默认安装的都是最新的 v2 版本。如需切换至 v1 版本，可以在 cmdline 中添加 `systemd.unified_cgroup_hierarchy=0` 参数设置，重启后就可以切换至 `docker cgroup v1` 版本。
+- 例如 `Home Assistant Supervisor` 仅支持 `docker cgroup v1`，而当前 docker 默认安装 v2 版本。如需切换至 v1，可在 cmdline 中添加 `systemd.unified_cgroup_hierarchy=0` 参数，重启后即可切换至 `docker cgroup v1`。
+
+- 通过在 cmdline 中添加 `mmc_core.max_freq=50000000` 设置，可以限制 eMMC 最大频率为 `50MHz`。某些 S905L2 盒子 eMMC 在高频（HS200/HS400, 100MHz+）下不稳定，降频可解决启动失败/随机崩溃，读写错误和不稳定等问题。
 
 - 通过在 cmdline 中添加 `max_loop=128` 设置，可以调整允许的 loop 挂载数量。
 
 - 通过在 cmdline 中添加 `usbcore.usbfs_memory_mb=1024` 设置，可以永久将 USBFS 内存缓冲区从默认的 `16 mb` 改为更大（`cat /sys/module/usbcore/parameters/usbfs_memory_mb`），提升 USB 传输大文件的能力。
 
 - 通过在 cmdline 中添加 `usbcore.usb3_disable=1` 设置，可以禁用 USB 3.0 的所有设备。
+
+- 通过在 cmdline 中添加 `usbcore.autosuspend=-1` 设置，可以禁用 USB 自动挂起（防止 USB 设备省电断电）；添加 `rootdelay=120` 设置，可以在系统启动时等待 120 秒再挂载根分区（给 USB 设备时间就绪）；添加 `mitigations=off` 设置，可以关闭 CPU 漏洞缓解（Spectre/Meltdown），提升性能。
 
 - 通过在 cmdline 中添加 `extraargs=video=HDMI-A-1:1920x1080@60` 设置，可以将视频显示模式强制为 1080p。
 
@@ -1515,35 +1540,35 @@ armbian-install
 
 ### 12.15 如何添加新的支持设备
 
-为一个设备构建 Armbian 系统，需要用到 `设备配置文件`、`系统文件`、`u-boot 文件`、`流程控制文件` 共 4 部分，具体添加方法介绍如下：
+为设备构建 Armbian 系统需要 `设备配置文件`、`系统文件`、`u-boot 文件`和`流程控制文件` 四部分，具体添加方法如下：
 
 #### 12.15.1 添加设备配置文件
 
-在配置文件 [/etc/model_database.conf](../build-armbian/armbian-files/common-files/etc/model_database.conf) 里面，根据设备的测试支持情况，添加对应的配置信息。其中 `BUILD` 的值是 `yes` 的是默认构建的部分设备，对应的 `BOARD` 值 `必须唯一`，这些盒子可以直接使用默认构建的 Armbian 系统。
+在配置文件 [/etc/model_database.conf](../build-armbian/armbian-files/common-files/etc/model_database.conf) 中，根据设备的测试结果添加对应配置信息。其中 `BUILD` 值为 `yes` 的是默认构建的设备，对应的 `BOARD` 值`必须唯一`，这些设备可直接使用默认构建的 Armbian 系统。
 
-默认值是 `no` 的没有打包，这些设备使用时需要下载相同 `FAMILY` 的 Armbian 系统，在写入 `USB` 后，可以在电脑上打开 `USB 中的 boot 分区`，修改 `/boot/uEnv.txt` 文件中 `FDT 的 dtb 名称`，适配列表中的其他设备。
+默认值为 `no` 的设备未包含在默认构建中，使用时需下载相同 `FAMILY` 的 Armbian 系统。写入 `USB` 后，在电脑上打开 `USB 中的 boot 分区`，修改 `/boot/uEnv.txt` 文件中的 `FDT dtb 名称`，即可适配列表中的其他设备。
 
 #### 12.15.2 添加系统文件
 
 通用文件放在：`build-armbian/armbian-files/common-files` 目录下，各平台通用。
 
-平台文件分别放在 `build-armbian/armbian-files/platform-files/<platform>` 目录下，[Amlogic](../build-armbian/armbian-files/platform-files/amlogic)，[Rockchip](../build-armbian/armbian-files/platform-files/rockchip) 和 [Allwinner](../build-armbian/armbian-files/platform-files/allwinner) 分别共用各自平台的文件，其中 `bootfs` 目录下是 /boot 分区的文件，`rootfs` 目录下的是 Armbian 系统文件。
+平台文件分别放在 `build-armbian/armbian-files/platform-files/<platform>` 目录下，[Amlogic](../build-armbian/armbian-files/platform-files/amlogic)、[Rockchip](../build-armbian/armbian-files/platform-files/rockchip) 和 [Allwinner](../build-armbian/armbian-files/platform-files/allwinner) 各自共享平台文件。其中 `bootfs` 目录存放 /boot 分区文件，`rootfs` 目录存放 Armbian 系统文件。
 
-如果个别设备有特殊差异化设置需求，在 `build-armbian/armbian-files/different-files` 目录下添加以 `BOARD` 命名的独立目录，根据需要建立 `bootfs` 目录添加系统 `/boot` 分区下的相关文件，根据需要建立 `rootfs` 目录添加系统文件。各文件夹命名以 `Armbian` 系统中的实际路径为准。用于添加新文件，或覆盖从通用文件和平台文件中添加的同名文件。
+若个别设备有特殊配置需求，在 `build-armbian/armbian-files/different-files` 目录下创建以 `BOARD` 命名的独立目录，按需建立 `bootfs` 目录添加 `/boot` 分区文件，或建立 `rootfs` 目录添加系统文件。目录结构以 Armbian 系统中的实际路径为准，可用于添加新文件或覆盖通用文件和平台文件中的同名文件。
 
 #### 12.15.3 添加 u-boot 文件
 
-`Amlogic` 系列的设备，共用 [bootloader](https://github.com/ophub/u-boot/tree/main/u-boot/amlogic/bootloader) 文件和 [u-boot](https://github.com/ophub/u-boot/tree/main/u-boot/amlogic/overload) 文件，如果有新增的文件，分别放入对应的目录。其中的 `bootloader` 文件在系统构建时会自动添加至 Armbian 系统的 `/usr/lib/u-boot` 目录，`u-boot` 文件会自动添加至 `/boot` 目录。
+`Amlogic` 系列的设备，共用 [bootloader](https://github.com/ophub/u-boot/tree/main/u-boot/amlogic/bootloader) 文件和 [u-boot](https://github.com/ophub/u-boot/tree/main/u-boot/amlogic/overload) 文件，新增文件分别放入对应目录。`bootloader` 文件在系统构建时将自动添加至 Armbian 系统的 `/usr/lib/u-boot` 目录，`u-boot` 文件自动添加至 `/boot` 目录。
 
 `Rockchip` 和 `Allwinner` 系列的设备，为每个设备添加以 `BOARD` 命名的独立 [u-boot](https://github.com/ophub/u-boot/tree/main/u-boot) 文件目录，对应的系列文件放在此目录中。
 
 构建 Armbian 镜像时，这些 u-boot 文件将根据 [/etc/model_database.conf](../build-armbian/armbian-files/common-files/etc/model_database.conf) 中的配置，由 rebuild 脚本写入对应的 Armbian 镜像文件中。
 
-对于能够使用标准 U-Boot 文件的设备，我们优先推荐您直接使用。然而，部分设备可能无法编译或获取到适用的 U-Boot。如果这类设备上已经可以正常运行 Ubuntu 等其他 Linux 系统，您可以尝试一种保留与引导相关的关键分区，来安装 Armbian 或 OpenWrt 的方法。通常，需要保留的关键分区包括 `bootloader`、`reserved` 和 `env`。
+能使用标准 U-Boot 文件的设备，建议优先直接使用。部分设备可能无法编译或获取适用的 U-Boot，若这类设备已能正常运行 Ubuntu 等 Linux 系统，可尝试保留引导相关的关键分区来安装 Armbian 或 OpenWrt。通常需要保留的关键分区包括 `bootloader`、`reserved` 和 `env`。
 
-这些分区也可以备份出来，然后在制作新的 Armbian 或 OpenWrt 镜像时，将这些备份好的分区数据写回到新镜像的相应位置。这种包含原系统引导分区的新镜像制作完成后，可以直接使用 `dd` 命令将整个镜像写入 eMMC，也可以使用相应系统的内置工具进行安装，例如 Armbian 的 `armbian-install` 命令，或 OpenWrt 的 `晶晨宝盒` 插件。
+这些分区可备份后，在制作新的 Armbian 或 OpenWrt 镜像时写回相应位置。制作完成的包含原系统引导分区的镜像，可直接使用 `dd` 命令写入 eMMC，也可使用相应系统的内置工具安装，例如 Armbian 的 `armbian-install` 命令，或 OpenWrt 的 `晶晨宝盒` 插件。
 
-目前使用这种方法的设备有 [oes(a311d)](https://github.com/ophub/amlogic-s9xxx-armbian/issues/2666)，[oes-plus(s922x)](https://github.com/ophub/amlogic-s9xxx-armbian/issues/3029)，[oec-turbo(rk3566)](https://github.com/ophub/amlogic-s9xxx-armbian/pull/2736)，下面我们以 `oes(a311d)` 设备为例，具体说明操作流程。
+目前采用此方法的设备有 [oes(a311d)](https://github.com/ophub/amlogic-s9xxx-armbian/issues/2666)，[oes-plus(s922x)](https://github.com/ophub/amlogic-s9xxx-armbian/issues/3029)，[oec-turbo(rk3566)](https://github.com/ophub/amlogic-s9xxx-armbian/pull/2736)，以下以 `oes(a311d)` 设备为例说明具体操作流程。
 
 ##### 12.15.3.1 查看分区信息布局情况
 
@@ -1579,7 +1604,7 @@ dd if=/dev/mmcblk2 of=env.bin bs=1M count=1 skip=628
 
 备份的文件放在 [u-boot](https://github.com/ophub/u-boot) 仓库对应的目录 [u-boot/amlogic/bootloader/a311d-oes](https://github.com/ophub/u-boot/tree/main/u-boot/amlogic/bootloader/a311d-oes) 里面。
 
-细心的你是否发现了 reserved 分区有 64MB 大小，为什么我们只备份了 8MB 的大小呢？这是因为在 `oes(a311d)` 设备上，`reserved` 分区的前 8MB 是关键数据，后续的 56MB 是空白的，可以不备份。具体查看方法：
+注意到 reserved 分区为 64MB，但仅备份了 8MB。原因在于 `oes(a311d)` 设备上 `reserved` 分区的前 8MB 为关键数据，后续 56MB 为空白，无需备份。具体查看方法：
 
 ```shell
 # 首先，备份 reserved 分区完整的 64MB 大小的文件：
@@ -1600,19 +1625,19 @@ hexdump -C reserved_first_8M.bin | less
 00800000
 ```
 
-分析输出结果，最后一个包含非零数据的行的地址是 `0071fff0`。从地址 `00720000` 开始，所有内容都变成了 `00`（零）。hexdump 工具使用 （`*`） 来表示重复的行，这意味着从 `00720000` 一直到 `00800000` (即8MB的末尾) 都是零。把效数据地址 `0x00720000` 换算成十进制是 `7,471,104` 字节，也就是 `7471104 / 1024 / 1024 = 7.125 MB` 大小，所以我们取个整备份 8MB 即可。另外 env 分区也是只有前面 80KB 是有效数据，后面都是空白的，所以我们只备份了 1MB 的内容。
+分析输出结果，最后一个包含非零数据的行的地址是 `0071fff0`。从地址 `00720000` 开始，所有内容都变成了 `00`（零）。hexdump 工具使用 （`*`） 来表示重复的行，这意味着从 `00720000` 一直到 `00800000` (即8MB的末尾) 都是零。把效数据地址 `0x00720000` 换算成十进制是 `7,471,104` 字节，也就是 `7471104 / 1024 / 1024 = 7.125 MB` 大小，因此取整备份 8MB 即可。env 分区同理，仅前 80KB 为有效数据，其余为空白，因此仅备份 1MB。
 
 ##### 12.15.3.3 添加特殊分区写入文件
 
-具体的实现细节，可以参考文件 [/etc/armbian-board-release.conf](https://github.com/ophub/amlogic-s9xxx-armbian/blob/main/build-armbian/armbian-files/different-files/a311d-oes/rootfs/etc/armbian-board-release.conf) 中定义的 `write_board_bootloader` 函数。该函数会在镜像重构（rebuild）过程中被调用。此外，该配置文件也是一个功能强大的设备定制中心。您不仅可以通过 `skip_mb="700"` 等参数来精确控制镜像分区的布局与大小，还可以添加自定义脚本，以实现对内核或其他系统文件的特殊处理。以后所有针对特定设备的高级定制化操作都将集中在此文件中进行统一管理，从而确保配置的清晰、高效与便捷。
+具体实现细节请参考文件 [/etc/armbian-board-release.conf](https://github.com/ophub/amlogic-s9xxx-armbian/blob/main/build-armbian/armbian-files/different-files/a311d-oes/rootfs/etc/armbian-board-release.conf) 中定义的 `write_board_bootloader` 函数。该函数在镜像重构（rebuild）过程中被调用。此外，该配置文件也是功能强大的设备定制中心。您不仅可以通过 `skip_mb="700"` 等参数来精确控制镜像分区的布局与大小，还可以添加自定义脚本，以实现对内核或其他系统文件的特殊处理。所有针对特定设备的高级定制操作均集中在此文件中统一管理，确保配置清晰高效。
 
 #### 12.15.4 添加流程控制文件
 
-在 [yml 工作流控制文件](../.github/workflows/build-armbian-arm64-server-image.yml) 的 `armbian_board` 中添加对应的 `BOARD` 选项，支持在 github.com 的 `Actions` 中进行使用。
+在 [yml 工作流控制文件](../.github/workflows/build-armbian-arm64-server-image.yml) 的 `armbian_board` 中添加对应的 `BOARD` 选项，使其支持在 GitHub Actions 中使用。
 
 ### 12.16 如何解决写入 eMMC 时 I/O 错误的问题
 
-有些设备可以从 USB/SD/TF 正常启动 Armbian 使用，但是写入 eMMC 时会报 I/O 写入错误，例如 [Issues](https://github.com/ophub/amlogic-s9xxx-armbian/issues/989) 中的案例，报错内容如下：
+部分设备可从 USB/SD/TF 正常启动 Armbian，但写入 eMMC 时会出现 I/O 写入错误，例如 [Issues](https://github.com/ophub/amlogic-s9xxx-armbian/issues/989) 中的案例，报错内容如下：
 
 ```shell
 [  284.338449] I/O error, dev mmcblk2, sector 0 op 0x1:(WRITE) flags 0x800 phys_seg 1 prio class 2
@@ -1623,7 +1648,7 @@ hexdump -C reserved_first_8M.bin | less
 [  284.500871] Buffer I/O error on dev mmcblk2, logical block 0, lost async page write
 ```
 
-这种情况下可以调整所使用的 dtb 的工作模式速度和频率，来稳定对存储的读写支持。使用 sdr 模式时，频率是速度的 2 倍，使用 ddr 模式时，频率等于速度。如下：
+此时可调整 dtb 中的工作模式速度和频率以稳定存储读写。SDR 模式下频率为速度的 2 倍，DDR 模式下频率等于速度。可用模式如下：
 
 ```shell
 sd-uhs-sdr12
@@ -1660,9 +1685,9 @@ max-frequency = <208000000>;
 };
 ```
 
-一般情况下，把 `&sd_emmc_c` 的频率由 `max-frequency = <200000000>;` 下调为 `max-frequency = <100000000>;` 即可解决问题。如果不行可继续下调到 `50000000` 进行测试，并通过调整 `&sd_emmc_b` 来对 `USB/SD/TF` 进行设置，也可以使用 `sd-uhs-sdr` 进行限速。你可以通过修改 dts 文件并 [编译](https://github.com/ophub/amlogic-s9xxx-armbian/tree/main/compile-kernel) 得到测试文件，也可以通过 `12.13 节` 中介绍的方法对已有的 dtb 文件进行反编译修改生成测试文件。反编译 dtb 文件修改时使用十六进制的值，其中十进制的 `200000000` 对应的十六进制为 `0xbebc200`，十进制的 `100000000` 对应的十六进制为 `0x5f5e100`，十进制的 `50000000` 对应的十六进制为 `0x2faf080`，十进制的 `25000000` 对应的十六进制为 `0x17d7840`。
+通常将 `&sd_emmc_c` 的频率从 `max-frequency = <200000000>;` 下调至 `max-frequency = <100000000>;` 即可解决。若无效可继续下调至 `50000000` 进行测试，同时可通过调整 `&sd_emmc_b` 配置 `USB/SD/TF`，或使用 `sd-uhs-sdr` 限速。可通过修改 dts 文件并[编译](https://github.com/ophub/amlogic-s9xxx-armbian/tree/main/compile-kernel)生成测试文件，也可参照 `12.13 节` 的方法对现有 dtb 文件进行反编译修改。反编译 dtb 文件时使用十六进制值，其中十进制的 `200000000` 对应的十六进制为 `0xbebc200`，十进制的 `100000000` 对应的十六进制为 `0x5f5e100`，十进制的 `50000000` 对应的十六进制为 `0x2faf080`，十进制的 `25000000` 对应的十六进制为 `0x17d7840`。也可以参照 `12.14 节` 的 cmdline 设置方法，在 cmdline 中添加 `mmc_core.max_freq=50000000` 参数来限制 eMMC 的最大频率来解决读写错误和不稳定等问题。
 
-除了通过系统软件层来解决，还可以发挥 [钞能力](https://github.com/ophub/amlogic-s9xxx-armbian/issues/998) 和 [动手能力](https://www.right.com.cn/forum/thread-901586-1-1.html) 解决。
+除软件层面的优化外，还可通过[硬件升级](https://github.com/ophub/amlogic-s9xxx-armbian/issues/998)和[动手改造](https://www.right.com.cn/forum/thread-901586-1-1.html)解决。
 
 ### 12.17 如何解决 Bullseye 版本没有声音的问题
 
@@ -1683,13 +1708,13 @@ systemctl enable sound.service
 systemctl restart sound.service
 ```
 
-重启 Armbian 测试。如果声音仍然不工作，可能是因为你的盒子用的是旧的 conf 对应的声音输出路线，需要在 /usr/bin/g12_sound.sh 里面注释掉 `L137-L142` 对应的新配置（主要是给 G12B 用的，也就是 S922X，旧的 G12A/S905X2 之前，以及基于 G12A 的 SM1/S905X3 大部分用不来），然后取消 `L130-L134` 对应的旧配置的注释。
+重启 Armbian 进行测试。若声音仍无输出，可能是设备使用了旧版 conf 对应的音频输出路径，需在 /usr/bin/g12_sound.sh 中注释掉 `L137-L142` 的新配置（该配置主要适用于 G12B/S922X，旧版 G12A/S905X2 及基于 G12A 的 SM1/S905X3 大多不兼容），并取消 `L130-L134` 旧配置的注释。
 
 ### 12.18 如何编译 boot.scr 文件
 
-在 Armbian 系统中的 `/boot` 目录下，`boot.scr` 是用于引导系统的文件。`boot.scr` 是 `boot.cmd` 的编译文件。`boot.cmd` 是 `boot.scr` 的源码文件。可以通过修改 `boot.cmd` 文件来修改 `boot.scr.` 文件，然后通过 `mkimage` 命令编译成 `boot.scr` 文件。
+Armbian 系统 `/boot` 目录下，`boot.scr` 是系统引导文件，由 `boot.cmd` 源码文件编译生成。修改 `boot.cmd` 后，通过 `mkimage` 命令重新编译即可生成新的 `boot.scr`。
 
-这两个文件一般不需要修改，如果有调整需求，可以参考以下方法。
+通常无需修改这两个文件，如有调整需求可参考以下方法。
 
 ```shell
 # 安装依赖
@@ -1715,7 +1740,7 @@ reboot
 
 ### 12.19 如何开启远程桌面和修改默认端口
 
-在软件中心 `armbian-software` 里选择 `201` 可以安装桌面，在安装桌面时会询问是否开启远程桌面，输入 `y` 即可开启。远程桌面的默认端口是 `3389`，可以根据需要自定义使用其他端口：
+在软件中心 `armbian-software` 中选择 `201` 安装桌面。安装过程中会询问是否开启远程桌面，输入 `y` 即可启用。远程桌面默认端口为 `3389`，可根据需要自定义端口：
 
 ```shell
 sudo nano /etc/xrdp/xrdp.ini
@@ -1738,3 +1763,47 @@ net.ipv4.tcp_congestion_control = bbr
 # net.core.default_qdisc = fq_codel
 # net.ipv4.tcp_congestion_control = cubic
 ```
+
+### 12.21 关于 HDMI EDID 识别异常问题的解决方法
+
+**应用场景**：部分设备的 HDMI 接口无法从显示器读取 EDID（显示器的 EDID 芯片在 DDC 总线上不应答，属于板级硬件共性），内核拿不到显示器的能力列表，表现为无显示输出或只能以 1024x768 兜底分辨率输出（典型如 bdy-g98，详见 [ophub/fnnas#606](https://github.com/ophub/fnnas/issues/606#issuecomment-5282389038)）。类似地，使用 KVM 切换器、HDMI 转接/采集设备时 EDID 也可能丢失或异常；或者在无显示器（headless）场景下，希望系统始终以固定分辨率输出。这些情况都可以通过内核参数强制注入一份 EDID 固件，绕开对显示器的读取。
+
+**工作原理**：系统镜像已内置 initramfs 钩子，每次生成/重建 initramfs 时都会自动把 `/lib/firmware/edid/` 目录下的全部 EDID 固件文件（预置约 30 个常用分辨率）打包进去。该机制默认处于待命状态——只要不加内核参数，打包进去的文件不产生任何影响。
+
+**添加方法**：编辑 `/boot/armbianEnv.txt`，在 `extraargs=` 一行的末尾追加（以 6.x 内核为例）：
+
+```shell
+extraargs=video=HDMI-A-1:e drm.edid_firmware=HDMI-A-1:edid/1920x1080.bin
+```
+
+其中 `video=HDMI-A-1:e` 用于强制使能该接口（可选），`drm.edid_firmware=` 指定强制使用的 EDID 文件（路径相对于 `/lib/firmware/`）。两个容易踩的坑：
+
+- 配置文件可能是 `/boot/armbianEnv.txt`、`/boot/uEnv.txt` 或 `/boot/extlinux/extlinux.conf` 等，请根据实际情况修改。
+- **参数前缀与内核版本有关**：6.x 内核用 `drm.edid_firmware`，早期内核用 `drm_kms_helper.edid_firmware`。不确定时在设备上确认：存在 `/sys/module/drm/parameters/edid_firmware` 就用 `drm.` 前缀，否则查看 `/sys/module/drm_kms_helper/parameters/` 下的同名文件。前缀写错内核会静默忽略，不报错也不生效。
+- 接口名不一定是 `HDMI-A-1`，可用 `ls /sys/class/drm/ | grep HDMI` 查看设备上的实际名称。
+
+保存后重建 initramfs 并重启：
+
+```shell
+# 若提示 "update-initramfs: Not updating initramfs."，先执行：
+sed -i 's/^update_initramfs=.*/update_initramfs=yes/' /etc/initramfs-tools/update-initramfs.conf
+
+update-initramfs -u -k $(uname -r)
+reboot
+```
+
+**验证**：
+
+```shell
+lsinitramfs /boot/initrd.img-$(uname -r) | grep edid   # initramfs 中应能看到 edid 文件
+dmesg | grep -i edid                                   # 确认固件被内核加载
+cat /sys/class/drm/card0-HDMI-A-1/modes                # 出现目标分辨率即生效
+```
+
+**更换分辨率**：从 `ls /lib/firmware/edid/` 列出的预置文件中另选一个（如 `1920x1080_50hz.bin`），把内核参数指向新文件名，重新执行上面的 `update-initramfs` 命令并重启即可。也可以放入自制的 EDID 文件（128 字节的基块，或带扩展块的多块文件），方法相同。
+
+**注意事项**：
+
+- 预置的 EDID 不含 CTA 扩展块，因此 **HDMI 音频不可用**；需要音频时请换用带扩展块的 EDID 文件。
+- 需要内核开启 `CONFIG_DRM_LOAD_EDID_FIRMWARE=y`（本仓库编译的内核已开启）。
+- 想恢复显示器自动识别：从 `extraargs` 中删掉这两个参数，重启即可，无需其他操作。

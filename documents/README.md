@@ -1,8 +1,8 @@
 # Armbian Build and Usage Guide
 
-View Chinese description | [查看中文说明](README.cn.md)
+[English Instructions](README.md) | [中文说明](README.cn.md) | [日本語説明](README.ja.md)
 
-GitHub Actions is a service launched by Microsoft that provides a virtual server environment with excellent performance configurations. Based on this, you can build, test, package, and deploy projects. For public repositories, it can be used free of charge with no time limit, and each build can last up to 6 hours. This is sufficient for compiling Armbian (usually we can complete a compilation within about 3 hours). Sharing is just for the purpose of exchanging experiences, please understand any shortcomings, do not initiate any harmful attacks on the network, and do not misuse GitHub Actions.
+GitHub Actions is a CI/CD service from Microsoft that provides high-performance virtual server environments for building, testing, packaging, and deploying projects. Public repositories can use it free of charge with no time limit, and each build can run for up to 6 hours — more than sufficient for compiling Armbian (typically completed within about 3 hours). This project is shared for educational and experience-exchange purposes. Please do not initiate any harmful network attacks or misuse GitHub Actions.
 
 # Table of Contents
 
@@ -92,6 +92,8 @@ GitHub Actions is a service launched by Microsoft that provides a virtual server
         - [12.11.2.2 How to use cm9vdA's u-boot building script](#121122-how-to-use-cm9vdas-u-boot-building-script)
     - [12.12 Error in Memory Size Recognition](#1212-error-in-memory-size-recognition)
     - [12.13 How to Decompile dtb Files](#1213-how-to-decompile-dtb-files)
+      - [12.13.1 Directly Decompile dtb Files](#12131-directly-decompile-dtb-files)
+      - [12.13.2 Export Full-State DTS from a Running Device (Recommended)](#12132-export-full-state-dts-from-a-running-device-recommended)
     - [12.14 How to Modify cmdline Settings](#1214-how-to-modify-cmdline-settings)
     - [12.15 How to Add New Supported Devices](#1215-how-to-add-new-supported-devices)
       - [12.15.1 Add Device Configuration File](#12151-add-device-configuration-file)
@@ -109,20 +111,20 @@ GitHub Actions is a service launched by Microsoft that provides a virtual server
 
 ## 1. Register your own Github account
 
-Register your own account in order to continue with the customized operation of the system. Click the `Sign up` button in the upper right corner of the github.com website and follow the instructions to register your account.
+Register an account to proceed with system customization. Click the `Sign up` button in the upper right corner of github.com and follow the prompts to complete registration.
 
 ## 2. Set up private variable GITHUB_TOKEN etc
 
 According to the [GitHub Docs](https://docs.github.com/en/actions/security-guides/automatic-token-authentication), GitHub automatically creates a unique `GITHUB_TOKEN` secret at the start of every workflow job for use within the workflow. The `{{ secrets.GITHUB_TOKEN }}` can be used for authentication within the workflow job.
 
-When building a [Armbian Docker](../.github/workflows/build-armbian-arm64-docker-image.yml) image in Actions and pushing it to Docker Hub, you need to set two secrets: `DOCKERHUB_USERNAME` and `DOCKERHUB_PASSWORD`. On your repository's page, click Settings in the top right corner, then navigate to `Settings` > `Secrets and variables` > `Actions` > `Repository secrets` > `New repository secret`, add the following two secrets:
+When building an [Armbian Docker](../.github/workflows/build-armbian-arm64-docker-image.yml) image in Actions and pushing it to Docker Hub, you need to set two secrets: `DOCKERHUB_USERNAME` and `DOCKERHUB_PASSWORD`. On your repository's page, click Settings in the top right corner, then navigate to `Settings` > `Secrets and variables` > `Actions` > `Repository secrets` > `New repository secret`, add the following two secrets:
 
 - Secret name `DOCKERHUB_USERNAME`: The value is your username for logging into Docker Hub.
 - Secret name `DOCKERHUB_PASSWORD`: The value is your password for logging into Docker Hub.
 
 ## 3. Fork the repository and set Workflow permissions
 
-Now you can Fork the repository. Open the repository https://github.com/ophub/amlogic-s9xxx-armbian, click the Fork button in the upper right, copy a copy of the repository code to your account, wait a few seconds, after the Fork is complete, visit your own amlogic-s9xxx-armbian in your own repository. In the upper right corner, `Settings` > `Actions` > `General` > `Workflow permissions` on the left navigation bar and save. The illustration is as follows:
+Fork the repository by opening https://github.com/ophub/amlogic-s9xxx-armbian and clicking the Fork button in the upper right to copy the repository to your account. Once the fork is complete, navigate to your copy. Then go to `Settings` > `Actions` > `General` > `Workflow permissions` in the left navigation bar and save. The illustration is as follows:
 
 <div style="width:100%;margin-top:40px;margin:5px;">
 <img src=https://user-images.githubusercontent.com/68696949/167585338-841d3b05-8d98-4d73-ba72-475aad4a95a9.png width="300" />
@@ -130,7 +132,7 @@ Now you can Fork the repository. Open the repository https://github.com/ophub/am
 
 ## 4. Customization instructions for personalized Armbian system files
 
-The system compilation process is controlled in the [.github/workflows/build-armbian-arm64-server-image.yml](../.github/workflows/build-armbian-arm64-server-image.yml) file. There are other .yml files in the workflows directory that implement different functions. The system is compiled in real time using Armbian's current official code, and related parameters can be referred to the official documentation.
+The system compilation process is controlled in the [.github/workflows/build-armbian-arm64-server-image.yml](../.github/workflows/build-armbian-arm64-server-image.yml) file. Additional .yml files in the workflows directory handle other functions. The system is compiled using Armbian's current official source code. Refer to the official documentation for parameter details.
 
 ```yaml
 - name: Compile Armbian [ ${{ inputs.set_release }} ]
@@ -159,11 +161,11 @@ When building Armbian with `ophub`, the `armbian_files` parameter allows you to 
 
 ## 5. Compile the system
 
-There are many ways to compile the system. You can set up timed compilation, manual compilation, or set some specific events to trigger the compilation. Let's start with simple operations.
+The system can be compiled manually, on a schedule, or triggered by specific events. The following sections cover each method.
 
 ### 5.1 Manual Compilation
 
-In your repository's navigation bar, click the Actions button, then sequentially click on Build armbian > Run workflow > Run workflow to start the compilation. Wait for approximately 3 hours. The compilation is completed once all processes have ended. The illustration is as follows:
+In your repository's navigation bar, click the Actions button, then select Build armbian > Run workflow > Run workflow to start compilation. The process takes approximately 3 hours and is complete once all steps finish. The illustration is as follows:
 
 <div style="width:100%;margin-top:40px;margin:5px;">
 <img src=https://user-images.githubusercontent.com/68696949/163203938-e7762b09-e6b8-4cf5-b1f1-9c67c1a29953.png width="300" />
@@ -173,7 +175,7 @@ In your repository's navigation bar, click the Actions button, then sequentially
 
 ### 5.2 Scheduled Compilation
 
-In the [.github/workflows/build-armbian-arm64-server-image.yml](../.github/workflows/build-armbian-arm64-server-image.yml) file, use Cron to set scheduled compilation. The five different positions respectively represent minutes (0 - 59) / hours (0 - 23) / date (1 - 31) / month (1 - 12) / day of the week (0 - 6)(Sunday - Saturday). Set the time by modifying the value at different positions. The system uses UTC standard time by default, please convert according to the time zone of your country.
+In the [.github/workflows/build-armbian-arm64-server-image.yml](../.github/workflows/build-armbian-arm64-server-image.yml) file, use Cron to configure scheduled compilation. The five fields represent minutes (0–59) / hours (0–23) / day of month (1–31) / month (1–12) / day of week (0–6, Sunday–Saturday). Modify values as needed. The system uses UTC by default; convert to your local time zone accordingly.
 
 ```yaml
 schedule:
@@ -184,13 +186,13 @@ schedule:
 
 The default system configuration information is recorded in the [model_database.conf](../build-armbian/armbian-files/common-files/etc/model_database.conf) file, in which the `BOARD` name must be unique.
 
-For those with `BUILD` value as `yes`, they are part of the default packaged systems for the box, these boxes can be used directly. Those with the default value as `no` are not packaged. To use the unpackaged boxes, you need to download the same `FAMILY` packaged system, after writing to `USB`, you can open `USB's boot partition` on the computer, modify `FDT's dtb name` in `/boot/uEnv.txt` file, to adapt to other boxes in the list.
+Devices with `BUILD` set to `yes` are included in the default build and can be used directly. Devices set to `no` are not packaged by default. To use an unpackaged device, download the Armbian system with the same `FAMILY`, write it to `USB`, then open the USB boot partition on your computer and modify the `FDT dtb name` in `/boot/uEnv.txt` to match your device.
 
-When compiling locally, specify with the `-b` parameter. When compiling in Actions on github.com, specify with the `armbian_board` parameter. Using `-b all` means to package all devices where `BUILD` is `yes`. When packaging with a specified `BOARD` parameter, it can be packaged whether `BUILD` is `yes` or `no`. For example: `-b r68s_s905x3-tx3_s905l3a-cm311`.
+For local compilation, use the `-b` parameter; for GitHub Actions, use the `armbian_board` parameter. `-b all` packages all devices with `BUILD` set to `yes`. Specifying a `BOARD` explicitly will package it regardless of its `BUILD` value. For example: `-b r68s_s905x3-tx3_s905l3a-cm311`.
 
 ### 5.4 Expanding Github Actions Compilation Space Using Logical Volumes
 
-The default compile space for Github Actions is 84G, with about 50G available after considering the system and necessary software packages. When compiling all firmware, you may encounter an issue with insufficient space, which can be addressed by using logical volumes to expand the compile space to approximately 110G. Refer to the method in the [.github/workflows/build-armbian-arm64-server-image.yml](../.github/workflows/build-armbian-arm64-server-image.yml) file, and use the commands below to create a logical volume. Then, use the path of the logical volume during the compilation process.
+GitHub Actions provides 84GB of compile space by default, with approximately 50GB available after accounting for the system and required packages. When compiling all firmware, this may be insufficient. Use logical volumes to expand the compile space to approximately 110GB. Refer to the [.github/workflows/build-armbian-arm64-server-image.yml](../.github/workflows/build-armbian-arm64-server-image.yml) file and use the commands below to create a logical volume. Then use the logical volume path during compilation.
 
 ```yaml
 - name: Create simulated physical disk
@@ -208,27 +210,27 @@ The default compile space for Github Actions is 84G, with about 50G available af
     sudo mkfs.xfs /dev/github/runner
     sudo mkdir -p /builder
     sudo mount /dev/github/runner /builder
-    sudo chown -R runner.runner /builder
+    sudo chown -R runner:runner /builder
     df -Th
 ```
 
 ### 5.5 Build Armbian Docker image
 
-The method for creating the [Docker](https://hub.docker.com/u/ophub) image of the Armbian system can refer to the [armbian_docker](../compile-kernel/tools/script/docker) build script.
+To create a [Docker](https://hub.docker.com/u/ophub) image of the Armbian system, refer to the [armbian_docker](../compile-kernel/tools/script/docker) build script.
 
 ## 6. Saving the System
 
-The system save setting is also controlled in the [.github/workflows/build-armbian-arm64-server-image.yml](../.github/workflows/build-armbian-arm64-server-image.yml) file. We upload the compiled system to the Releases provided by the official GitHub via script automatically.
+System storage is also configured in the [.github/workflows/build-armbian-arm64-server-image.yml](../.github/workflows/build-armbian-arm64-server-image.yml) file. The compiled system is automatically uploaded to GitHub Releases via script.
 
 ```yaml
 - name: Upload Armbian image to Release
-  uses: ncipollo/release-action@main
+  uses: ophub/upload-to-release@main
   if: ${{ env.PACKAGED_STATUS }} == 'success' && !cancelled()
   with:
     tag: Armbian_${{ env.ARMBIAN_RELEASE }}_${{ env.PACKAGED_OUTPUTDATE }}
     artifacts: ${{ env.PACKAGED_OUTPUTPATH }}/*
-    allowUpdates: true
-    token: ${{ secrets.GITHUB_TOKEN }}
+    allow_updates: true
+    gh_token: ${{ secrets.GITHUB_TOKEN }}
     body: |
       These are the Armbian OS image
       * OS information
@@ -240,7 +242,7 @@ The system save setting is also controlled in the [.github/workflows/build-armbi
 
 ## 7. Downloading the System
 
-Enter the Release section in the lower right corner of the repository homepage, select the system that corresponds to your box model. The illustration is as follows:
+Navigate to the Releases section on the repository homepage and select the system image matching your device model. The illustration is as follows:
 
 <div style="width:100%;margin-top:40px;margin:5px;">
 <img src=https://user-images.githubusercontent.com/68696949/163204798-0d98524c-73df-4876-8912-fcae2845fbba.png width="300" />
@@ -249,9 +251,9 @@ Enter the Release section in the lower right corner of the repository homepage, 
 
 ## 8. Installing Armbian to EMMC
 
-Amlogic, Rockchip, and Allwinner have different installation methods. Different devices have different storage, some use an external microSD card, some have eMMC, some support the use of various storage media such as NVMe. According to the different devices, their installation methods are introduced separately. First, download the Armbian system for your device from [Releases](https://github.com/ophub/amlogic-s9xxx-armbian/releases), and decompress it into .img format for standby. Depending on your device, use different installation methods in the following summary.
+Installation methods vary across Amlogic, Rockchip, and Allwinner platforms. Devices differ in storage options — some use external microSD cards, some have eMMC, and some support NVMe or other media. Each platform's installation method is described separately below. First, download the appropriate Armbian system image for your device from [Releases](https://github.com/ophub/amlogic-s9xxx-armbian/releases) and decompress it to .img format. Depending on your device, follow the corresponding installation method.
 
-After the installation is completed, connect the Armbian device to the `router`, wait for the device to boot for `2 minutes`, and then check the `IP` of the device named Armbian in the router for management settings using `SSH` tool. The default username is `root`, the default password is `1234`, and the default port is `22`.
+After installation, connect the device to your `router` and allow `2 minutes` for it to boot. Then find the device's `IP` address (listed as Armbian) in your router's admin panel and connect via `SSH`. The default username is `root`, the default password is `1234`, and the default port is `22`.
 
 <div style="width:100%;margin-top:40px;margin:5px;">
 <img src=https://user-images.githubusercontent.com/68696949/202972715-addcd695-970a-43d6-8a34-24a9c4bc80a2.png width="600" /><br />
@@ -277,15 +279,15 @@ Example: `armbian-install -m yes -a no`
 
 ### 8.2 Installation Method for Rockchip Series
 
-The installation method for each device is different, introduced separately as follows.
+Installation methods differ by device and are described individually below.
 
 #### 8.2.1 Installation Method for Radxa-Rock5B
 
-Radxa-Rock5B has multiple storage mediums such as microSD/eMMC/NVMe to choose from, and the corresponding installation methods are also different. Download [rk3588_spl_loader_v1.08.111.bin and spi_image.img](https://github.com/ophub/u-boot/tree/main/u-boot/rockchip/rock5b) files for later use. Download [RKDevTool](https://github.com/ophub/kernel/releases/download/tools/Radxa_rock5b_RKDevTool_Release_v2.96__DriverAssitant_v5.1.1.tar.gz) tool and driver for later use. Download [Rufus](https://rufus.ie/) or [balenaEtcher](https://www.balena.io/etcher/) disc writing tools for later use.
+Radxa-Rock5B supports multiple storage media (microSD/eMMC/NVMe), each with a different installation method. Download the [rk3588_spl_loader_v1.08.111.bin and spi_image.img](https://github.com/ophub/u-boot/tree/main/u-boot/rockchip/rock5b) files. Download the [RKDevTool](https://github.com/ophub/kernel/releases/download/tools/Radxa_rock5b_RKDevTool_Release_v2.96__DriverAssitant_v5.1.1.tar.gz) tool and driver. Download [Rufus](https://rufus.ie/) or [balenaEtcher](https://www.balena.io/etcher/) for writing disk images.
 
 ##### 8.2.1.1 Install the System to MicroSD
 
-Use Rufus or balenaEtcher and other tools to write the Armbian system image into microSD, then insert the microSD with the system written into the device for use.
+Use Rufus, balenaEtcher, or a similar tool to write the Armbian system image to a microSD card, then insert it into the device.
 
 <div style="width:100%;margin-top:40px;margin:5px;">
 <img src=https://user-images.githubusercontent.com/68696949/202972996-300f223b-f6f6-48af-86ca-bdc842e5017d.png width="600" /><br />
@@ -294,14 +296,14 @@ Use Rufus or balenaEtcher and other tools to write the Armbian system image into
 
 ##### 8.2.1.2 Install the System to eMMC
 
-- Install using a microSD card: Write the Armbian system image into a microSD card, insert the microSD card into the device and start, upload the `armbian.img` image file to the microSD card, use the `dd` command to write the Armbian image into NVMe, the command is as follows:
+- Install via microSD card: Write the Armbian system image to a microSD card and boot the device from it. Upload the `armbian.img` file to the microSD card, then use `dd` to write it to eMMC:
 
 ```Shell
 dd if=armbian.img  of=/dev/mmcblk1  bs=1M status=progress
 ```
 
-- Install using a USB to eMMC card reader: Connect the eMMC module to the computer, use Rufus or balenaEtcher and other tools to write the Armbian system image into eMMC, then insert the eMMC with the system written into the device for use.
-- Install using the Maskrom mode: Turn off the power of the development board. Hold down the gold button. Insert the USB-A to Type-C cable into the ROCK 5B Type-C port, and the other end into the PC. Release the gold button. Check that the USB device prompts to find a MASKROM device. Right-click in the blank area of the list, and then choose to load the `rock-5b-emmc.cfg` configuration file (the configuration file and RKDevTool are in the same directory). Set `rk3588_spl_loader_v1.08.111.bin` and `Armbian.img` as shown below, and choose to write.
+- Install via USB-to-eMMC card reader: Connect the eMMC module to your computer, use Rufus or balenaEtcher to write the Armbian system image to eMMC, then insert the eMMC module into the device.
+- Install via Maskrom mode: Power off the development board. Hold the gold button, then connect a USB-A to Type-C cable between the ROCK 5B Type-C port and your PC. Release the gold button. Verify that a MASKROM device is detected. Right-click in the blank area of the list and load the `rock-5b-emmc.cfg` configuration file (the configuration file and RKDevTool are in the same directory). Set `rk3588_spl_loader_v1.08.111.bin` and `Armbian.img` as shown below and begin writing.
 
 <div style="width:100%;margin-top:40px;margin:5px;">
 <img src=https://user-images.githubusercontent.com/68696949/202954823-3d3b1509-eedc-4192-91eb-017269c7f896.png width="200" /><br />
@@ -314,7 +316,7 @@ dd if=armbian.img  of=/dev/mmcblk1  bs=1M status=progress
 
 The ROCK-5B has an SPI flash memory on its motherboard. Installing the bootloader on this SPI flash memory can support other boot media (such as SATA, USB3, or NVMe) that are not directly supported by the SoC maskrom mode. To use NVMe, you must first write the SPI file. The method is as follows:
 
-Power off the development board. Remove bootable devices, such as MicroSD cards, eMMC modules, etc. Press and hold the golden button (or silver button on some revisions of the development board). Insert the USB-A to C cable into the C-type port of ROCK-5B, and the other end into your PC. Release the golden button. Check for a MASKROM device in the USB devices. Right-click in the list box to load the configuration, then select the configuration file in the resource management folder (the configuration file and RKDevTool are in the same directory), select `rk3588_spl_loader_v1.08.111.bin` and `spi_image.img` files according to the figure below, and click write:
+Power off the development board and remove all bootable devices (MicroSD cards, eMMC modules, etc.). Press and hold the golden button, then connect a USB-A to Type-C cable between the ROCK-5B and your PC. Release the golden button. Verify that a MASKROM device is detected. Right-click in the list to load the configuration file from the resource folder (the configuration file and RKDevTool are in the same directory), select `rk3588_spl_loader_v1.08.111.bin` and `spi_image.img` files according to the figure below, and click write:
 
 <div style="width:100%;margin-top:40px;margin:5px;">
 <img src=https://user-images.githubusercontent.com/68696949/202954823-3d3b1509-eedc-4192-91eb-017269c7f896.png width="200" /><br />
@@ -323,8 +325,8 @@ Power off the development board. Remove bootable devices, such as MicroSD cards,
 <img src=https://user-images.githubusercontent.com/68696949/202961447-49c0941a-e233-4b2a-b96b-b47636ce3cf2.png width="600" />
 </div>
 
-- Installation using a card reader: Insert the M.2 NVMe SSD into the M.2 NVMe SSD to USB3.0 card reader to connect to the host. Use tools such as Rufus or balenaEtcher to write the Armbian system image to NVMe, then plug the NVMe with the written system into the device to use.
-- Installation using a microSD card: Write the Armbian system image to a microSD card, insert the microSD card into the device and boot, upload the `armbian.img` image file to the microSD card, use the `dd` command to write the Armbian image into NVMe, the command is as follows:
+- Install via card reader: Insert the M.2 NVMe SSD into an M.2 NVMe-to-USB 3.0 card reader and connect it to your computer. Use Rufus or balenaEtcher to write the Armbian system image to the NVMe drive, then install it in the device.
+- Install via microSD card: Write the Armbian system image to a microSD card and boot the device from it. Upload the `armbian.img` file to the microSD card, then use `dd` to write it to NVMe:
 
 ```Shell
 dd if=armbian.img  of=/dev/nvme0n1  bs=1M status=progress
@@ -332,16 +334,16 @@ dd if=armbian.img  of=/dev/nvme0n1  bs=1M status=progress
 
 #### 8.2.2 Installation method for FastRhino R66S
 
-Use tools such as Rufus or balenaEtcher to write the Armbian system image to microSD, then plug the microSD with the written system into the device to use.
+Use Rufus or balenaEtcher to write the Armbian system image to a microSD card, then insert it into the device.
 
 #### 8.2.3 Installation method for FastRhino R68S
 
-- Download the [RKDevTool](https://github.com/ophub/kernel/releases/download/tools/FastRhino_r68s_RKDevTool_Release_v2.86___DriverAssitant_v5.1.1.tar.gz) tool and driver, unzip and install the DriverAssistant driver program, and open the RKDevTool tool for standby.
-- In the shutdown state of R68s, insert the USB male-to-male cable first, then press and hold the Recovery key and plug in the 12V power supply, release the Recovery key after two seconds, the flashing tool will `discover a LOADER device`.
-- Right-click in the blank space of the RKDevTool tool operation interface to add an item.
-- The address is `0x00000000`, the name is `armbian`, and the path is to select the `armbian.img` system file.
-- Select the added armbian line, `deselect other lines`, and click `execute` to write.
-- Supplement: If other systems have been written into eMMC, please erase them in advanced features first, and then write the Armbian system. If it cannot be erased, write the `MiniLoaderAll.bin` bootloader file again first, then enter `MASKROM` to write the Armbian system. MiniLoaderAll.bin boot file settings: address `0xCCCCCCCC`, name `Loader`, path selects the `MiniLoaderAll.bin` file in the Image directory of the RKDevTool flashing tool.
+- Download the [RKDevTool](https://github.com/ophub/kernel/releases/download/tools/FastRhino_r68s_RKDevTool_Release_v2.86___DriverAssitant_v5.1.1.tar.gz) tool and driver. Unzip, install the DriverAssistant driver, and open RKDevTool.
+- With R68s powered off, connect the USB male-to-male cable, press and hold the Recovery key, then plug in the 12V power supply. Release the Recovery key after two seconds — the flashing tool should `discover a LOADER device`.
+- Right-click in the blank area of the RKDevTool interface to add an item.
+- Set address to `0x00000000`, name to `armbian`, and path to the `armbian.img` system file.
+- Select the armbian entry, `deselect all other entries`, and click `execute` to write.
+- Note: If another system exists on eMMC, erase it first via Advanced Features before writing Armbian. If erasure fails, reflash the `MiniLoaderAll.bin` bootloader first, then enter `MASKROM` mode to write Armbian. MiniLoaderAll.bin settings: address `0xCCCCCCCC`, name `Loader`, path to the `MiniLoaderAll.bin` file in the Image directory of RKDevTool.
 
 <div style="width:100%;margin-top:40px;margin:5px;">
 <img src=https://user-images.githubusercontent.com/68696949/202970301-d798677b-e875-4971-ac8f-ee58b2a1e686.png width="200" /><br />
@@ -352,14 +354,14 @@ Use tools such as Rufus or balenaEtcher to write the Armbian system image to mic
 
 #### 8.2.4 Installation method for Beikeyun
 
-The method is reproduced from [milton](https://www.cnblogs.com/milton/p/15391525.html)'s tutorial. Flashing requires entering the Maskrom mode. First, disconnect all connections, short the CLK and GND (using TTL's GND, or the GND next to the small button is fine) two touch points, and then connect the USB to the PC, and you will detect the MASKROM device. Short point position is as follows:
+This method is based on [milton](https://www.cnblogs.com/milton/p/15391525.html)'s tutorial. Flashing requires entering Maskrom mode. Disconnect all connections, short the CLK and GND contacts (using the TTL GND or the GND near the small button), then connect via USB to your PC. A MASKROM device should be detected. The short-circuit point location is shown below:
 
 <div style="width:100%;margin-top:40px;margin:5px;">
 <img src=https://user-images.githubusercontent.com/68696949/202977817-fb12d291-47e2-47e4-88c3-e21f9ae57922.png width="600" /><br />
 <img src=https://user-images.githubusercontent.com/68696949/202977900-50b4770d-8444-42a0-8478-3234043455bd.png width="600" />
 </div>
 
-Open the RKDevTool flashing tool, right-click to add an item.
+Open RKDevTool and right-click to add an item.
 
 - Address `0xCCCCCCCC`, name `Boot`, path [select](https://github.com/ophub/u-boot/tree/main/u-boot/rockchip/beikeyun) `rk3328_loader_v1.14.249.bin`.
 - Address `0x00000000`, name `system`, path select the `Armbian.img` system to be flashed.
@@ -367,7 +369,7 @@ Open the RKDevTool flashing tool, right-click to add an item.
 
 #### 8.2.5 Installation method for Chainedbox-L1-Pro
 
-The method is reproduced from [cc747](https://post.smzdm.com/p/a4wkdo7l/)'s tutorial. Flashing requires entering the Maskrom mode. Make Chainedbox-L1-Pro in a power-off state, unplug all cables. With a USB male-to-male cable, one end is inserted into the USB2.0 interface of Chainedbox-L1-Pro, and the other end is inserted into the computer. Insert a paperclip into the Reset hole and press and hold it. Insert the power cord. Wait a few seconds until the `discovered a LOADER device` appears at the bottom of the RKDevTool box before releasing the paperclip. Switch RKDevTool to `Advanced Features` and click the `Enter Maskrom` button, prompting `Found a MASKROM device`. Right-click to add an item.
+This method is based on [cc747](https://post.smzdm.com/p/a4wkdo7l/)'s tutorial. Power off the Chainedbox-L1-Pro and unplug all cables. Connect a USB male-to-male cable between the USB 2.0 port on the Chainedbox-L1-Pro and your computer. Insert a paperclip into the Reset hole and hold it down, then plug in the power cord. Wait until `discovered a LOADER device` appears at the bottom of RKDevTool, then release the paperclip. Switch to `Advanced Features` and click `Enter Maskrom` until `Found a MASKROM device` appears. Right-click to add an item.
 
 - Address `0xCCCCCCCC`, name `Boot`, path [select](https://github.com/ophub/u-boot/tree/main/u-boot/rockchip/chainedbox) `rk3328_loader_v1.14.249.bin`.
 - Address `0x00000000`, name `system`, path select the `Armbian.img` system to be flashed.
@@ -379,8 +381,8 @@ The method is reproduced from [cc747](https://post.smzdm.com/p/a4wkdo7l/)'s tuto
 </div>
 
 #### 8.2.6 Installation method for lckfb-tspi
-- Download the [RKDevTool](https://github.com/ophub/kernel/releases/download/tools/FastRhino_r68s_RKDevTool_Release_v2.86___DriverAssitant_v5.1.1.tar.gz) tool and driver, unzip and install the DriverAssistant driver program, and open the RKDevTool tool .(Note, please use version 2.86 tool instead of 2.92, version 2.92 will crash when flashing)
-- tspi in the shutdown state, press and hold the Recovery key and insert the type-c data cable. Release the Recovery key after RKDevTool prompts `A LOADER device was found'. Right click to add item.
+- Download the [RKDevTool](https://github.com/ophub/kernel/releases/download/tools/FastRhino_r68s_RKDevTool_Release_v2.86___DriverAssitant_v5.1.1.tar.gz) tool and driver. Unzip, install the DriverAssistant driver, and open RKDevTool. (Note: use version 2.86 instead of 2.92, as version 2.92 crashes during flashing.)
+- With the tspi powered off, press and hold the Recovery key, then insert the Type-C data cable. Release the Recovery key after RKDevTool displays `A LOADER device was found`. Right-click to add an item.
 - Address `0x00000000`, name `system`, path select the `Armbian.img` system to be flashed.
 - Click Execute and wait for the progress to complete.
 
@@ -397,9 +399,9 @@ armbian-install
 
 You can use Docker versions of Armbian images on Ubuntu/Debian/Armbian systems. These images are hosted on [Docker Hub](https://hub.docker.com/r/ophub) and can be downloaded directly for use.
 
-Four Armbian Docker images with different base versions are provided: `armbian-trixie`, `armbian-bookworm`, `armbian-noble`, and `armbian-jammy`. Each version has both `arm64` and `amd64` builds, allowing you to choose the appropriate version based on your needs.
+Four Armbian Docker images with different base versions are provided: `armbian-trixie`, `armbian-bookworm`, `armbian-noble`, and `armbian-resolute`. Each version has both `arm64` and `amd64` builds, allowing you to choose the appropriate version based on your needs.
 
-Among them, armbian-trixie is based on Debian 13, armbian-bookworm is based on Debian 12, armbian-noble is based on Ubuntu 24.04, and armbian-jammy is based on Ubuntu 22.04.
+Among them, armbian-trixie is based on Debian 13, armbian-bookworm is based on Debian 12, armbian-noble is based on Ubuntu 24.04, and armbian-resolute is based on Ubuntu 26.04.
 
 The arm64 version is suitable for devices with platform architectures such as Amlogic/Rockchip/Allwinner, while the amd64 version is suitable for computers and servers with x86_64 architecture.
 
@@ -457,11 +459,11 @@ docker rm -f armbian-trixie
 
 ## 9. Compiling Armbian Kernel
 
-Kernel compilation is supported in Ubuntu, Debian or Armbian systems. Both local compilation and GitHub Actions cloud compilation are supported. For specific methods, please refer to the [Kernel Compilation Instructions](../../compile-kernel).
+Kernel compilation is supported on Ubuntu, Debian, and Armbian systems, both locally and via GitHub Actions. For details, refer to the [Kernel Compilation Instructions](../../compile-kernel).
 
 ### 9.1 How to Add Custom Kernel Patches
 
-When there is a common kernel patch directory (`common-kernel-patches`) in the kernel patch directory [tools/patch](../../compile-kernel/tools/patch), or when there is a directory named `the same as the kernel source repository` (for example, [linux-5.15.y](https://github.com/unifreq/linux-5.15.y)), you can use `-p true` to automatically apply the kernel patch. The naming convention for the patch directory is as follows:
+When the kernel patch directory [tools/patch](../../compile-kernel/tools/patch) contains a common patch directory (`common-kernel-patches`) or a directory matching the kernel source repository name (for example, [linux-5.15.y](https://github.com/unifreq/linux-5.15.y)), use `-p true` to automatically apply kernel patches. The directory naming convention is as follows:
 
 ```shell
 ~/amlogic-s9xxx-armbian
@@ -475,8 +477,8 @@ When there is a common kernel patch directory (`common-kernel-patches`) in the k
                 └── more kernel directory...
 ```
 
-- When compiling the kernel locally, you can manually create the corresponding directory and add the corresponding custom kernel patches.
-- When cloud compiling with GitHub Actions, you can use the `kernel_patch` parameter to specify the directory of the kernel patch in your repository, such as the usage of [compile-beta-kernel.yml](https://github.com/ophub/kernel/blob/main/.github/workflows/compile-beta-kernel.yml) in the [kernel](https://github.com/ophub/kernel) repository:
+- For local kernel compilation, manually create the corresponding directory and add your custom kernel patches.
+- For GitHub Actions cloud compilation, use the `kernel_patch` parameter to specify the kernel patch directory in your repository. For example, see the usage in [compile-beta-kernel.yml](https://github.com/ophub/kernel/blob/main/.github/workflows/compile-beta-kernel.yml) in the [kernel](https://github.com/ophub/kernel) repository:
 
 ```yaml
 - name: Compile the kernel
@@ -489,24 +491,26 @@ When there is a common kernel patch directory (`common-kernel-patches`) in the k
     auto_patch: true
 ```
 
-When using the `kernel_patch` parameter to specify a custom kernel patch, please name the patch directory according to the above convention.
+When specifying a custom kernel patch via `kernel_patch`, follow the naming convention described above.
 
 ### 9.2 How to Make Kernel Patches
 
-- Obtained from repositories such as [Armbian](https://github.com/armbian/build) and [OpenWrt](https://github.com/openwrt/openwrt): for example, [armbian/patch/kernel](https://github.com/armbian/build/tree/main/patch/kernel/archive) and [openwrt/rockchip/patches-6.1](https://github.com/openwrt/openwrt/tree/main/target/linux/rockchip/patches-6.1), [lede/rockchip/patches-5.15](https://github.com/coolsnowwolf/lede/tree/master/target/linux/rockchip/patches-5.15) etc., patches from these mainline kernel using repositories can generally be used directly.
-- Obtained from commits in github.com repositories: Adding a `.patch` suffix to the corresponding `commit` address can generate the corresponding patch.
+- Obtained from repositories such as [Armbian](https://github.com/armbian/build) and [OpenWrt](https://github.com/openwrt/openwrt): for example, [armbian/patch/kernel](https://github.com/armbian/build/tree/main/patch/kernel/archive) and [openwrt/rockchip/patches-6.1](https://github.com/openwrt/openwrt/tree/main/target/linux/rockchip/patches-6.1), [lede/rockchip/patches-5.15](https://github.com/coolsnowwolf/lede/tree/master/target/linux/rockchip/patches-5.15) etc. Patches from these mainline kernel repositories can generally be used directly.
+- Obtained from GitHub commit URLs: Appending `.patch` to a commit URL generates the corresponding patch file.
 
-Before adding a custom kernel patch, it needs to be compared with the upstream kernel source repository [unifreq/linux-k.x.y](https://github.com/unifreq) to confirm whether this patch has been added to avoid conflicts. Kernel patches that pass the test are recommended to be submitted to the series of kernel repositories maintained by unifreq. Each small step for a person is a big step for the world. Your contribution will make our use of Armbian and OpenWrt systems in the box more stable and interesting.
+Before adding a custom kernel patch, compare it against the upstream kernel source repository [unifreq/linux-k.x.y](https://github.com/unifreq) to verify it has not already been applied and to avoid conflicts. Tested kernel patches are encouraged to be submitted to the kernel repositories maintained by unifreq. Your contributions help make Armbian and OpenWrt more stable and functional for everyone.
 
 
 ### 9.3 How to Customize Compilation of Driver Modules
 
-In the mainline Linux kernel, some drivers are not yet supported, and you can customize the compilation of driver modules. Select drivers that are supported for use in the mainline kernel; Android drivers are generally not supported in the mainline kernel and cannot be compiled. For example:
+Some drivers are not yet included in the mainline Linux kernel but can be compiled as custom modules. Only drivers compatible with the mainline kernel can be compiled; Android-specific drivers are generally unsupported. See the guide: [How to Compile the rtl8189fs Driver Module⁠](https://github.com/ophub/amlogic-s9xxx-armbian/issues/3193)
+
+For example:
 
 ```shell
 # Step 1: Update to the latest kernel
 # Due to incomplete header files in earlier versions, it is necessary to update to the latest kernel version.
-# The requirement for each kernel version is not lower than 5.10.222, 5.15.163, 6.1.100, 6.6.41.
+# The requirement for each kernel version is not lower than 5.10.222, 5.15.163, 6.1.100, 6.6.41, 6.12, 6.18.
 armbian-sync
 armbian-update -k 6.1
 
@@ -515,9 +519,9 @@ armbian-update -k 6.1
 mkdir -p /usr/local/toolchain
 cd /usr/local/toolchain
 # Download the compilation tools
-wget https://github.com/ophub/kernel/releases/download/dev/arm-gnu-toolchain-14.3.rel1-aarch64-aarch64-none-linux-gnu.tar.xz
+wget https://github.com/ophub/kernel/releases/download/dev/arm-gnu-toolchain-15.3.rel1-aarch64-aarch64-none-linux-gnu.tar.xz
 # Extract
-tar -Jxf arm-gnu-toolchain-14.3.rel1-aarch64-aarch64-none-linux-gnu.tar.xz
+tar -Jxf arm-gnu-toolchain-15.3.rel1-aarch64-aarch64-none-linux-gnu.tar.xz
 # Install additional compilation dependencies (optional; you can manually install missing components based on errors).
 armbian-kernel -u
 
@@ -528,7 +532,7 @@ cd ~/
 git clone https://github.com/jwrdegoede/rtl8189ES_linux
 cd rtl8189ES_linux
 # Set up the compilation environment
-gun_file="arm-gnu-toolchain-14.3.rel1-aarch64-aarch64-none-linux-gnu.tar.xz"
+gun_file="arm-gnu-toolchain-15.3.rel1-aarch64-aarch64-none-linux-gnu.tar.xz"
 toolchain_path="/usr/local/toolchain"
 toolchain_name="gcc"
 export CROSS_COMPILE="${toolchain_path}/${gun_file//.tar.xz/}/bin/aarch64-none-linux-gnu-"
@@ -582,18 +586,19 @@ armbian-update
 | Optional Parameters | Default Value | Options | Description |
 | -------- | ------------ | ------------- | -------------------------------- |
 | -r | ophub/kernel | `<owner>/<repo>` | Set the repository to download the kernel from github.com |
-| -u | Automatic | stable/flippy/beta/rk3588/rk35xx/h6 | Set the suffix of the used kernel's [tags](https://github.com/ophub/kernel/releases) |
+| -u | Automatic | stable/flippy/beta/rk3588/rk35xx | Set the suffix of the used kernel's [tags](https://github.com/ophub/kernel/releases) |
 | -k | Latest Version | Kernel Version | Set the [Kernel Version](https://github.com/ophub/kernel/releases/tag/kernel_stable) |
 | -b | yes | yes/no | Automatically backup the kernel currently in use when updating the kernel |
+| -d | deb | tar/deb | Set the preferred kernel package format. If unavailable, the script will automatically try the alternative. `deb` is recommended for compiling custom drivers. |
 | -m | no | yes/no | Use the mainline u-boot |
 | -s | None | None/DiskName | [SOS] Restore the system kernel in eMMC/NVMe/sdX and other disks |
 | -h | None | None | View the usage help |
 
-Example: `armbian-update -k 5.15.50 -u stable`
+Example: `armbian-update -k 5.15 -u stable -d deb`
 
-When specifying the kernel version number through the `-k` parameter, you can accurately specify the specific version number, such as: `armbian-update -k 5.15.50`, or you can specify the kernel series vaguely, such as: `armbian-update -k 5.15`, when vaguely specifying, it will automatically use the latest version of the specified series.
+The `-k` parameter accepts either an exact version number (e.g., `armbian-update -k 5.15.50`) or a version series (e.g., `armbian-update -k 5.15`), which automatically selects the latest version in that series.
 
-When updating the kernel, the currently used system kernel will be automatically backed up, stored in the `/ddbr/backup` directory, retaining the three most recently used kernel versions. If the newly installed kernel is unstable, you can restore to the backed-up kernel at any time:
+During kernel updates, the current kernel is automatically backed up to `/ddbr/backup`, retaining the three most recent versions. If a newly installed kernel is unstable, restore a backed-up kernel at any time:
 ```shell
 # Enter the backup kernel directory, such as 6.6.12
 cd /ddbr/backup/6.6.12
@@ -601,7 +606,7 @@ cd /ddbr/backup/6.6.12
 armbian-update
 ```
 
-[SOS]: In case of incomplete updates or other issues preventing the system from booting from eMMC/NVMe/sdX due to special reasons, you can boot an Armbian system with any kernel version from another disk such as USB. Then, run the command `armbian-update -s` to update the kernel from the USB to eMMC/NVMe/sdX, achieving the purpose of rescue. If no disk parameter is specified, the kernel will be restored from the USB device to eMMC/NVMe/sdX by default. If there are multiple disks, you can accurately specify the disk name that needs to be restored. Examples are as follows:
+[SOS]: If an incomplete update or other issue prevents the system from booting from eMMC/NVMe/sdX, boot Armbian from another disk (e.g., USB) with any kernel version, then run `armbian-update -s` to restore the kernel to eMMC/NVMe/sdX. Without a disk parameter, the kernel is restored from the USB device to eMMC/NVMe/sdX by default. For systems with multiple disks, specify the target disk name explicitly. Examples:
 
 ```shell
 # Restore the kernel in eMMC
@@ -616,15 +621,20 @@ armbian-update -s /dev/sda
 armbian-update -s
 ```
 
-If your network access to github.com is poor and you can't update online, you can manually download the kernel, upload it to any directory of the Armbian system, and enter the kernel directory to execute `armbian-update` for local installation. If there's a complete set of kernel files in the current directory, it will use the kernel from the current directory for the update (the four kernel files needed for the update are `header-xxx.tar.gz`, `boot-xxx.tar.gz`, `dtb-xxx.tar.gz`, `modules-xxx.tar.gz`. Other kernel files are not necessary and their presence does not affect the update. The system can accurately identify needed kernel files). You can freely update among the optional kernels supported by the device, such as updating from kernel 6.6.12 to kernel 5.15.50.
+If network issues prevent downloading from github.com, manually download the kernel files, upload them to any directory on your Armbian system, navigate to that directory, and run `armbian-update` for local installation. The system automatically prioritizes local kernel files when a complete set is detected in the current directory. The kernel is available in `tar` and `deb` formats. Each requires 4 files:
 
-Custom options set by `-r`/`-u`/`-b` parameters can be permanently written into the relevant parameters in the individual configuration file `/etc/ophub-release`, to avoid entering it each time. The corresponding settings are:
+- The 4 required files for `tar` format updates are: `header-xxx.tar.gz`, `boot-xxx.tar.gz`, `dtb-xxx.tar.gz`, and `modules-xxx.tar.gz`.
+- The 4 required files for `deb` format updates are: `linux-image-xxx.deb`, `linux-dtb-xxx.deb`, `linux-headers-xxx.deb`, and `linux-libc-dev-xxx.deb`.
+- Additional kernel files are optional and do not affect the update process, as the system accurately identifies the required files. Any supported kernel version can be installed, e.g., switching from 6.6.12 to 5.15.50.
+
+Custom options set via `-r`/`-u`/`-b`/`-d` can be saved permanently in `/etc/ophub-release` to avoid re-entering them each time. The corresponding settings are:
 
 ```shell
 # Assign values to custom parameters
 -r  :  KERNEL_REPO='ophub/kernel'
 -u  :  KERNEL_TAGS='stable'
 -b  :  KERNEL_BACKUP='yes'
+-d  :  DOWNLOAD_TYPE='deb'
 ```
 
 ## 11. Installing Common Software
@@ -635,9 +645,9 @@ Log in to the Armbian system → Enter the command:
 armbian-software
 ```
 
-Using the `armbian-software -u` command, you can update the local software center list. Based on user feedback in [Issue](https://github.com/ophub/amlogic-s9xxx-armbian/issues), we gradually integrate commonly used [software](../build-armbian/armbian-files/common-files/usr/share/ophub/armbian-software/software-list.conf) to implement one-click installation/update/uninstallation and other quick operations. This includes `docker images`, `desktop software`, `application services`, etc. See more [instructions](armbian_software.md).
+Use `armbian-software -u` to update the local software center list. Based on community feedback in [Issue](https://github.com/ophub/amlogic-s9xxx-armbian/issues), commonly used [software](../build-armbian/armbian-files/common-files/usr/share/ophub/armbian-software/software-list.conf) is gradually integrated with one-click installation, update, and uninstallation support. This includes `docker images`, `desktop software`, `application services`, etc. See more [instructions](armbian_software.md).
 
-Use the `armbian-apt` command to select the appropriate software source for your country or region, which can improve software download speeds. For example, select the `mirrors.tuna.tsinghua.edu.cn` source in China:
+Use `armbian-apt` to select an appropriate software mirror for your region, improving download speeds. For example, select the `mirrors.tuna.tsinghua.edu.cn` source in China:
 
 
 ```shell
@@ -682,7 +692,7 @@ armbian-apt
 
 ## 12. Frequently Asked Questions
 
-Here's a compilation of some common issues you may encounter while using Armbian.
+This section covers common issues encountered when using Armbian.
 
 ### 12.1 dtb and u-boot Correspondence Table for Each Box
 
@@ -694,22 +704,22 @@ Please refer to the [instructions](led_screen_display_control.md).
 
 ### 12.3 How to Restore the Original Android TV System
 
-The Android TV system on the device is usually backed up and restored using `armbian-ddbr`.
+Back up and restore the Android TV system using `armbian-ddbr`.
 
-In addition, the Android system can also be flashed into eMMC using the method of flashing via a cable. The download image of the Android system can be found in [Tools](https://github.com/ophub/kernel/releases/tag/tools).
+Alternatively, flash the Android system to eMMC via USB cable. Android system images are available in [Tools](https://github.com/ophub/kernel/releases/tag/tools).
 
 #### 12.3.1 Backup and Restore Using Armbian-ddbr
 
-We recommend that before you install the Armbian system on a brand new box, you first backup the original Android TV system that came with the box. This is in case you need to restore the system later. Boot the Armbian system from `TF/SD/USB`, input the `armbian-ddbr` command, and then enter `b` when prompted to back up the system. The backup file is stored in `/ddbr/BACKUP-arm-64-emmc.img.gz`, please download and save it. To restore the Android TV system, upload the backup file to the same path on the `TF/SD/USB` device, enter the `armbian-ddbr` command, and then enter `r` when prompted to restore the system.
+Before installing Armbian on a new device, back up the original Android TV system in case restoration is needed later. Boot Armbian from `TF/SD/USB`, run `armbian-ddbr`, and enter `b` when prompted to create a backup. The backup is saved to `/ddbr/BACKUP-arm-64-emmc.img.gz` — download and keep it in a safe location. To restore, upload the backup file to the same path on the `TF/SD/USB` device, run `armbian-ddbr`, and enter `r` when prompted.
 
 
 #### 12.3.2 Recovering using Amlogic Flashing Tool
 
-- Generally, if you can boot from USB by reinserting the power supply, you can just reinstall. Try it multiple times if necessary.
+- If the device can still boot from USB after reinserting the power supply, simply reinstall. Retry multiple times if necessary.
 
-- If the screen is black after connecting to a monitor and you can't boot from USB, you'll need to short-circuit initialize the box. First, restore the box to the original Android system, and then reinstall the Armbian system. Download the [amlogic_usb_burning_tool](https://github.com/ophub/kernel/releases/tag/tools) recovery tool and install it. Prepare a [USB double male data cable](https://user-images.githubusercontent.com/68696949/159267576-74ad69a5-b6fc-489d-b1a6-0f8f8ff28634.png) and a [paperclip](https://user-images.githubusercontent.com/68696949/159267790-38cf4681-6827-4cb6-86b2-19c7f1943342.png).
+- If the screen remains black and the device cannot boot from USB, a short-circuit recovery is required. First restore the original Android system, then reinstall Armbian. Download and install the [amlogic_usb_burning_tool](https://github.com/ophub/kernel/releases/tag/tools) recovery tool. Prepare a [USB male-to-male cable](https://user-images.githubusercontent.com/68696949/159267576-74ad69a5-b6fc-489d-b1a6-0f8f8ff28634.png) and a [paperclip](https://user-images.githubusercontent.com/68696949/159267790-38cf4681-6827-4cb6-86b2-19c7f1943342.png).
 
-- Taking x96max+ as an example, confirm the location of the [short-circuit point](https://user-images.githubusercontent.com/68696949/110590933-67785300-81b3-11eb-9860-986ef35dca7d.jpg) on the box's motherboard, and download the box's [Android TV system package](https://github.com/ophub/kernel/releases/tag/tools). Android TV systems and corresponding short-circuit point diagrams for other common devices can also be [downloaded and viewed here](https://github.com/ophub/kernel/releases/tag/tools).
+- Using x96max+ as an example, locate the [short-circuit point](https://user-images.githubusercontent.com/68696949/110590933-67785300-81b3-11eb-9860-986ef35dca7d.jpg) on the motherboard and download the [Android TV system package](https://github.com/ophub/kernel/releases/tag/tools). Android TV system images and short-circuit point diagrams for other common devices are also [available here](https://github.com/ophub/kernel/releases/tag/tools).
 
 ```shell
 Operating method:
@@ -728,29 +738,29 @@ Operating method:
    If the progress bar does not move, you can try plugging in the power supply. Normally, you don't need power support for flashing, only the power supply from the USB double male can meet the requirements.
 ```
 
-Once you've finished restoring factory settings, the box has been restored to the Android TV system, and the other steps to install the Armbian system are the same as when you first installed the system, just repeat them.
+Once factory settings are restored, follow the same steps as the initial Armbian installation.
 
 ### 12.4 Setting the box to boot from USB/TF/SD
 
-Based on the situation of your own device, there are two methods to use: initial installation and reinstallation of the Armbian system.
+Depending on your situation, use either the initial installation or reinstallation method.
 
 #### 12.4.1 Initial Installation of Armbian System
 
 - Insert the USB/TF/SD with the installed system into the box.
-- Enable developer mode: Settings → About device → Version number (e.g., X96max plus...), rapidly click the left mouse button 5 times on the version number, until the system shows the prompt `You are now a developer`.
-- Enable USB debugging: System → Advanced options → Developer options (set `USB debugging` to enabled). Enable `ADB` debugging.
-- Install ADB tool: Download [adb](https://github.com/ophub/kernel/releases/tag/tools) and extract it, copy the three files `adb.exe`, `AdbWinApi.dll`, `AdbWinUsbApi.dll` to the `system32` and `syswow64` folders under `c://windows/`, then open the `cmd` command panel, use the `adb --version` command, if it shows, it means it can be used.
-- Enter `cmd` command mode. Enter the `adb connect 192.168.1.137` command (modify the IP according to your box, you can check it in the router device that the box is connected to), if the connection is successful, it will display `connected to 192.168.1.137:5555`
-- Enter the `adb shell reboot update` command, the box will reboot and boot from your inserted USB/TF/SD, you can enter the system by accessing the system's IP address from the browser, or via SSH.
+- Enable developer mode: Settings → About device → Version number (e.g., X96max plus...), tap the version number 5 times rapidly until `You are now a developer` appears.
+- Enable USB debugging: System → Advanced options → Developer options → enable `USB debugging` and `ADB` debugging.
+- Install ADB: Download [adb](https://github.com/ophub/kernel/releases/tag/tools) and extract it. Copy `adb.exe`, `AdbWinApi.dll`, and `AdbWinUsbApi.dll` to `c:\windows\system32` and `c:\windows\syswow64`. Verify the installation by running `adb --version` in a command prompt.
+- Open a command prompt and run `adb connect 192.168.1.137` (replace with your device's IP, found in your router's admin panel). A successful connection displays `connected to 192.168.1.137:5555`.
+- Run `adb shell reboot update` — the device will reboot from the inserted USB/TF/SD. Access the system via its IP address in a browser or through SSH.
 
 #### 12.4.2 Reinstallation of Armbian System
 
-- In normal situations, you can directly insert the USB flash drive with Armbian installed and boot from it. USB booting takes priority over eMMC.
-- In some cases, the device may not boot from the USB flash drive. In such cases, you can rename the `boot.scr` file in the `/boot` directory of the Armbian system on the eMMC. For example, you can rename it to `boot.scr.bak`. After that, you can insert the USB flash drive and boot from it. This way, you will be able to boot from the USB flash drive.
+- In normal situations, simply insert the USB drive with Armbian and boot from it. USB takes boot priority over eMMC.
+- If the device does not boot from USB, rename the `boot.scr` file in the eMMC's `/boot` directory (e.g., to `boot.scr.bak`), then insert the USB drive and boot again.
 
 ### 12.5 Disable Infrared Receiver
 
-By default, support for the infrared receiver is enabled, but if you are using your TV box as a server, you might want to disable the IR kernel module to prevent it from mistakenly turning off your box. To completely disable IR, add the following line:
+Infrared receiver support is enabled by default. If using the device as a server, disable the IR kernel module to prevent accidental shutdowns. To disable IR completely, add the following line:
 
 ```shell
 blacklist meson_ir
@@ -760,9 +770,9 @@ to `/etc/modprobe.d/blacklist.conf` and restart.
 
 ### 12.6 Boot file selection
 
-- Currently known devices, only `T95(s905x)` / `T95Z-Plus(s912)` / `BesTV-R3300L(s905l-b)` and a few other devices need to use the `/bootfs/extlinux/extlinux.conf` file, which has been added by default in the system. If other devices need it, you can write the system into USB, double-click to open the `boot` partition, and delete the `.bak` in the system's built-in `/boot/extlinux/extlinux.conf.bak` file name to use. When writing to eMMC, `armbian-install` will automatically check. If the `extlinux.conf` file exists, it will be created automatically.
+- Among known devices, only `T95(s905x)` / `T95Z-Plus(s912)` / `BesTV-R3300L(s905l-b)` and a few others require the `/bootfs/extlinux/extlinux.conf` file, which is included by default in the system. If other devices require it, write the system to USB, open the `boot` partition, and rename `/boot/extlinux/extlinux.conf.bak` by removing the `.bak` extension. When installing to eMMC, `armbian-install` automatically detects and creates the `extlinux.conf` file if needed.
 
-- Other devices only need `/boot/uEnv.txt` to boot, do not modify the `extlinux.conf.bak` file.
+- All other devices boot using `/boot/uEnv.txt` only — do not modify the `extlinux.conf.bak` file.
 
 ### 12.7 Network Configuration
 
@@ -788,7 +798,7 @@ iface eth0 inet dhcp
 
 ##### 12.7.1.2 Manual Setup of Static IP Address
 
-Modify the IP, gateway, and DNS according to your network condition.
+Adjust the IP, gateway, and DNS values to match your network configuration.
 
 ```shell
 source /etc/network/interfaces.d/*
@@ -805,7 +815,7 @@ dns-nameservers 192.168.1.1
 
 ##### 12.7.1.3 Establish Interconnected Network Using OpenWrt in Docker 
 
-Modify the MAC address according to your needs.
+Modify the MAC address as needed.
 
 ```shell
 source /etc/network/interfaces.d/*
@@ -828,11 +838,11 @@ iface lo inet loopback
 
 ##### 12.7.2.1 Create a New Network Connection
 
-Preparation work before creating or modifying a network connection.
+Prerequisites for creating or modifying a network connection.
 
 ###### 12.7.2.1.1 Get Network Interface Name
 
-Check which network interfaces are available for establishing network connections.
+Check available network interfaces.
 
 ```shell
 nmcli device | grep -E "^[e].*|^[w].*|^[D].*|^[T].*" | awk '{printf "%-19s%-19s\n",$1,$2}'
@@ -840,7 +850,7 @@ nmcli device | grep -E "^[e].*|^[w].*|^[D].*|^[T].*" | awk '{printf "%-19s%-19s\
 
 The `DEVICE` column displays the network interface name, and the `TYPE` column displays the network interface type.
 
-Where `eth0` = the name of the first Ethernet card, `eth1` = the name of the second Ethernet card, and so on. The same goes for wireless cards.
+`eth0` is the first Ethernet interface, `eth1` is the second, and so on. Wireless interfaces follow the same convention.
 
 ```shell
 DEVICE             TYPE
@@ -854,7 +864,7 @@ wlan1              wifi
 
 ###### 12.7.2.1.2 Get Existing Network Connection Name
 
-Check existing network connections on the device, including used and unused connections. When creating a new network connection, it is recommended not to use existing connection names.
+List existing network connections on the device, both active and inactive. Avoid reusing existing connection names when creating new ones.
 
 ```shell
 nmcli connection show | grep -E ".*|^[N].*" | awk '{printf "%-19s%-19s\n", $1,$3}'
@@ -862,7 +872,7 @@ nmcli connection show | grep -E ".*|^[N].*" | awk '{printf "%-19s%-19s\n", $1,$3
 
 The `NAME` column displays the name of the existing network connection, and the `TYPE` column displays the network interface type.
 
-Where `ethernet` = Ethernet card, `wifi` = wireless card, `bridge` = bridge
+`ethernet` = wired, `wifi` = wireless, `bridge` = bridge
 
 ```shell
 NAME               TYPE
@@ -877,7 +887,7 @@ cpe                wifi
 
 ###### 12.7.2.1.3 Create a Wired Network Connection
 
-Create a new network connection on network interface `eth0` and make it effective immediately (`Dynamic IP Address` - `IPv4 / IPv6`).
+Create a new network connection on interface `eth0` with immediate activation (`Dynamic IP Address` - `IPv4 / IPv6`).
 
 ```shell
 # Set ENV
@@ -896,7 +906,7 @@ nmcli connection up $MYCON
 ip -c -br address
 ```
 
-Create a new network connection on network interface `eth0` and make it effective immediately (`Static IP Address` - `IPv4`).
+Create a new network connection on interface `eth0` with immediate activation (`Static IP Address` - `IPv4`).
 
 ```shell
 # Set ENV
@@ -922,7 +932,7 @@ ip -c -br address
 
 ###### 12.7.2.1.4 Creating a Wireless Network Connection
 
-Create a network connection on the `wlan0` network interface and take effect immediately (`Dynamic IP address` - `IPv4 / IPv6`).
+Create a network connection on the `wlan0` interface with immediate activation (`Dynamic IP address` - `IPv4 / IPv6`).
 
 ```shell
 # Set ENV
@@ -949,7 +959,7 @@ ip -c -br address
 
 ##### 12.7.2.2 Modify WiFi SSID or PASSWD in Wireless Network Connection
 
-Modify the `WiFi SSID or PASSWD` in the wireless network connection `ssid` and take effect immediately.
+Update the `WiFi SSID or password` in the wireless network connection `ssid` with immediate activation.
 
 ```shell
 # Set ENV
@@ -971,9 +981,9 @@ ip -c -br address
 
 ###### 12.7.2.3.1 Static IP address - IPv4
 
-Modify the IP address allocation method to `Static IP address` on the network connection `ether1` and take effect immediately.
+Change the IP allocation method to `Static IP address` for network connection `ether1` with immediate activation.
 
-*Applicable to wired connections / wireless connections
+*Applicable to both wired and wireless connections
 
 ```shell
 # Set ENV
@@ -994,9 +1004,9 @@ ip -c -br address
 
 ###### 12.7.2.3.2 DHCP Obtains Dynamic IP Address - IPv4 / IPv6
 
-Modify the IP address allocation method to `DHCP Obtains Dynamic IP Address` on the network connection `ether1` and take effect immediately.
+Change the IP allocation method to `DHCP` for network connection `ether1` with immediate activation.
 
-*Applicable to wired connections / wireless connections
+*Applicable to both wired and wireless connections
 
 ```shell
 # Set ENV
@@ -1012,7 +1022,7 @@ ip -c -br address
 
 ##### 12.7.2.4 Modify Network Connection MAC Address
 
-Modify the MAC address on the network connection to resolve MAC address conflicts on the local network.
+Change the MAC address on a network connection to resolve MAC address conflicts.
 
 ###### 12.7.2.4.1 Method 1: Use the `nmcli` command to change the MAC address
 
@@ -1037,12 +1047,12 @@ nmcli connection up "${MYCON}"
 ip -c a show "${MYCON}"
 ```
 
-* When creating or modifying some network parameters, the network connection may be disconnected and reconnected to the network.
-* Due to different software and hardware environments (box, system, network equipment, etc.), it takes about `1-15` seconds to take effect. If it does not take effect for a longer time, it is recommended to check the software and hardware environment.
+* Modifying certain network parameters may temporarily disconnect and reconnect the network.
+* Depending on the hardware and software environment, changes take `1–15` seconds to apply. If changes do not take effect within this period, check your hardware and software configuration.
 
 ###### 12.7.2.4.2 Method 2: Modify the MAC address via a configuration file
 
-Add a MAC address override configuration file.
+Create a MAC address override configuration file.
 
 ```shell
 sudo mkdir -p /etc/systemd/network/
@@ -1061,13 +1071,13 @@ OriginalName=eth0
 MACAddress=02:55:66:77:88:99
 ```
 
-The changes take effect after `reboot`.
+Changes take effect after reboot.
 
 ##### 12.7.2.5 How to Disable IPv6
 
-You can use the `nmcli` utility to disable the `IPv6` protocol from the command line. Please refer to [disable-ipv6](https://access.redhat.com/documentation/zh-cn/red_hat_enterprise_linux/8/html/configuring_and_managing_networking/using-networkmanager-to-disable-ipv6-for-a-specific-connection_configuring-and-managing-networking) for the source.
+Use `nmcli` to disable `IPv6` from the command line. Please refer to [disable-ipv6](https://access.redhat.com/documentation/zh-cn/red_hat_enterprise_linux/8/html/configuring_and_managing_networking/using-networkmanager-to-disable-ipv6-for-a-specific-connection_configuring-and-managing-networking) for the source.
 
-Step 1, use the `nmcli connection show` command to view the network connection list, and the returned result is as follows:
+Step 1: View the network connection list:
 
 ```shell
 NAME                 UUID                                   TYPE       DEVICE
@@ -1075,32 +1085,32 @@ Wired connection 1   8a7e0151-9c66-4e6f-89ee-65bb2d64d366   ethernet   eth0
 ...
 ```
 
-Step 2, set the ipv6.method parameter of the connection to disabled:
+Step 2: Set the connection's ipv6.method parameter to disabled:
 
 ```shell
 nmcli connection modify "Wired connection 1" ipv6.method "disabled"
 ```
 
-Step 3, reconnect to the network:
+Step 3: Reconnect to the network:
 
 ```shell
 nmcli connection up "Wired connection 1"
 ```
 
-Step 4, check the network connection status. If there is no inet6 entry displayed, IPv6 is disabled on the device:
+Step 4: Verify the connection status. If no inet6 entry appears, IPv6 is disabled:
 
 ```shell
 ip address show eth0
 ```
 
-Step 5, verify whether the `/proc/sys/net/ipv6/conf/eth0/disable_ipv6` file now contains the value `1`
+Step 5: Confirm that `/proc/sys/net/ipv6/conf/eth0/disable_ipv6` contains `1`:
 
 ```shell
 # cat /proc/sys/net/ipv6/conf/eth0/disable_ipv6
 1
 ```
 
-Alternatively, you can disable IPv6 by default by adding the following lines to the `/etc/sysctl.conf` file:
+Alternatively, disable IPv6 system-wide by adding the following to `/etc/sysctl.conf`:
 
 ```shell
 # Disable IPv6 by default
@@ -1111,7 +1121,7 @@ net.ipv6.conf.lo.disable_ipv6 = 1
 
 #### 12.7.3 How to Enable Wireless
 
-Some devices support using wireless, the enablement method is as follows:
+Some devices support wireless connectivity. For instructions on using the wireless AP mode, please refer to [the guide](https://github.com/ophub/amlogic-s9xxx-armbian/issues/3610#issuecomment-5161303377). For details on configuring the DHCP service in conjunction with this mode, please refer to [the guide](https://github.com/ophub/amlogic-s9xxx-armbian/issues/3610#issuecomment-5162533992). To use the wireless client mode, please refer to the instructions below:
 
 ```shell
 # Install management tool
@@ -1145,7 +1155,7 @@ sudo nmcli connection delete "wifi name"
 
 #### 12.7.4 How to Enable Bluetooth
 
-Some devices support using Bluetooth, the enablement method is as follows:
+Some devices support Bluetooth. Enable it as follows:
 
 ```shell
 # Install Bluetooth support
@@ -1155,7 +1165,7 @@ armbian-config >> Network >> BT: Install Bluetooth support
 reboot
 ```
 
-After the system reboots, check whether the Bluetooth driver is normal. The desktop system can connect Bluetooth devices from the menu. It can also be installed using the terminal graphical interface.
+After rebooting, verify the Bluetooth driver is functioning. Desktop environments can connect Bluetooth devices via the menu. Terminal-based configuration is also available.
 
 ```shell
 dmesg | grep Bluetooth
@@ -1174,7 +1184,7 @@ dmesg | grep Bluetooth
 armbian-config >> Network >> BT: Discover and connect Bluetooth devices
 ```
 
-You can also install it using commands in the terminal:
+Bluetooth can also be managed via terminal commands:
 
 ```shell
 # Check the Bluetooth service running status
@@ -1214,13 +1224,13 @@ bluetoothctl block 12:34:56:78:90:AB
 
 ### 12.8 How to Add Startup Tasks
 
-A custom script for startup tasks has already been added to the system. In the Armbian system, the path is [/etc/custom_service/start_service.sh](../build-armbian/armbian-files/common-files/etc/custom_service/start_service.sh). You can customize and add related tasks to this script according to your personal needs.
+A startup task script is included in the system. In Armbian, the path is [/etc/custom_service/start_service.sh](../build-armbian/armbian-files/common-files/etc/custom_service/start_service.sh). Add your custom startup tasks to this script as needed.
 
 ### 12.9 How to Update Service Scripts in the System
 
-By using the `armbian-sync` command, you can update all service scripts in the local system to the latest version with one click.
+Run `armbian-sync` to update all local service scripts to the latest version.
 
-If the `armbian-sync` update fails, this suggests that the version of the command is too old. You can update the command using the method below:
+If `armbian-sync` fails, the installed version may be outdated. Update it manually:
 
 ```shell
 wget https://raw.githubusercontent.com/ophub/amlogic-s9xxx-armbian/main/build-armbian/armbian-files/common-files/usr/sbin/armbian-sync -O /usr/sbin/armbian-sync
@@ -1232,7 +1242,7 @@ armbian-sync
 
 ### 12.10 How to Get Android System Partition Information on eMMC
 
-When we write the Armbian system into the eMMC system, we need to first confirm the Android system partition table of the device to ensure that data is written to a safe area. Try not to damage the Android system partition table to avoid problems such as the system not being able to start. If you write to an unsafe area, it may fail to start or display an error similar to the one below:
+Before writing Armbian to eMMC, confirm the device's Android partition table to ensure data is written to safe areas. Damaging the partition table may prevent the system from booting. Writing to unsafe areas can cause boot failures or errors like the one shown below:
 
 <div style="width:100%;margin-top:40px;margin:5px;">
 <img width="800" alt="image" src="https://user-images.githubusercontent.com/68696949/187075834-4ac40263-52ae-4538-a4b1-d6f0d5b9c856.png">
@@ -1240,25 +1250,25 @@ When we write the Armbian system into the eMMC system, we need to first confirm 
 
 #### 12.10.1 Obtaining Partition Information
 
-If you are using Armbian released in this repository after 2022.11, you can copy and paste the following command to obtain a URL that records the complete partition information (the device itself does not need to be connected to the internet):
+For Armbian versions released from this repository after November 2022, run the following command to generate a URL containing complete partition information (no internet connection required on the device):
 
 ```shell
 ampart /dev/mmcblk2 --mode webreport 2>/dev/null
 ```
 
-*The webreport mode of ampart was introduced in the v1.2 version released on 2023.02.03. If there is no output when you use the above command, it may be an older version that does not support directly outputting URLs. You can instead use the following command:*
+*The webreport mode was introduced in ampart v1.2 (released 2023.02.03). If the above command produces no output, your version may be older. Use this alternative command instead:*
 
 ```shell
 echo "https://7ji.github.io/ampart-web-reporter/?dsnapshot=$(ampart /dev/mmcblk2 --mode dsnapshot 2>/dev/null | head -n 1)&esnapshot=$(ampart /dev/mmcblk2 --mode esnapshot 2>/dev/null | head -n 1)"
 ```
 
-The URL you obtain will look similar to the one below:
+The generated URL will look similar to this:
 
 ```shell
 https://7ji.github.io/ampart-web-reporter/?esnapshot=bootloader:0:4194304:0%20reserved:37748736:67108864:0%20cache:113246208:754974720:2%20env:876609536:8388608:0%20logo:893386752:33554432:1%20recovery:935329792:33554432:1%20rsv:977272832:8388608:1%20tee:994050048:8388608:1%20crypt:1010827264:33554432:1%20misc:1052770304:33554432:1%20instaboot:1094713344:536870912:1%20boot:1639972864:33554432:1%20system:1681915904:1073741824:1%20params:2764046336:67108864:2%20bootfiles:2839543808:754974720:2%20data:3602907136:4131389440:4&dsnapshot=logo::33554432:1%20recovery::33554432:1%20rsv::8388608:1%20tee::8388608:1%20crypt::33554432:1%20misc::33554432:1%20instaboot::536870912:1%20boot::33554432:1%20system::1073741824:1%20cache::536870912:2%20params::67108864:2%20data::-1:4
 ```
 
-Copy and paste this URL into your browser to view the clear and concise DTB partition information and eMMC partition information:
+Open this URL in a browser to view the DTB and eMMC partition information:
 
 <div style="width:100%;margin-top:40px;margin:5px;">
 <img width="800" alt="image" src="https://user-images.githubusercontent.com/24390674/216287642-e1b7be27-4d2c-4ac3-9fcc-15e06aebb97e.png">
@@ -1267,28 +1277,28 @@ Copy and paste this URL into your browser to view the clear and concise DTB part
 
 #### 12.10.2 Sharing Partition Information
 
-When you need to share partition information with others (for example, posting to this repository to report on a new device, or seeking help from others), try to share the URL itself rather than a screenshot. If you mind the URL being too long, you can use some free short URL tools.
+When sharing partition information (e.g., reporting a new device or seeking help), share the URL rather than a screenshot. Use a URL shortener if the link is too long.
 
-- On the one hand, the partition information on the webpage is dynamically generated each time you visit. The annotation of whether certain partitions can be written to and the format of the table may be updated.
-- On the other hand, others cannot conveniently copy partition parameters from screenshots for calculations, etc.
+- The partition information on the webpage is dynamically generated on each visit, so annotations and table formatting may be updated over time.
+- Additionally, partition parameters cannot be easily copied from screenshots for analysis.
 
-Also, you don't need to manually organize parameters into a table file. The layout of the table on the webpage has been specifically designed to be easily copied and pasted into Excel or LibreOffice Calc.
+The webpage's table layout is designed for easy copy-paste into Excel or LibreOffice Calc, eliminating the need to manually organize parameters.
 
 #### 12.10.3 Interpreting Partition Information
 
-The DTB table records the partition layout that every box's **system** hopes for in Android DTB. This layout usually ends with a `data` partition of automatically filled size, so boxes of the same system (and therefore, the same model) will necessarily have the same layout here. The actual partition layout on the box may vary due to different eMMC capacities, but it is always determined by the DTB partition layout (i.e., given the DTB partition layout and the exact size of eMMC, the eMMC partition situation can be deduced. *Did you notice that the above DTB partition information and eMMC partition information do not come from the same box?*).
+The DTB table records the desired partition layout defined in the Android DTB. This layout typically ends with a `data` partition that fills the remaining space, so devices with the same system (and model) share identical DTB layouts. The actual partition layout may vary due to different eMMC capacities, but is always derived from the DTB partition layout (i.e., given the DTB layout and exact eMMC size, the eMMC partition layout can be determined. *Did you notice that the DTB and eMMC partition examples above come from different devices?*).
 
-The eMMC table is the actual eMMC partition layout on the box. Each row represents a storage area, which could be a partition or a gap between partitions (due to Amlogic's quirky decision, there is at least an 8M gap between each partition, which was intended to be used for other purposes, but hasn't been used even in the latest S905X4, wasting space). In the row corresponding to a partition, the font is black, and both the offset and mask columns have values. In the row corresponding to a gap, the font is grey, the offset and mask columns have no values, and the partition name is `gap`.
+The eMMC table shows the actual partition layout on the device. Each row represents a storage area — either a partition or an inter-partition gap (Amlogic reserves at least 8MB between partitions, originally intended for other purposes but unused even in the latest S905X4, effectively wasting space). Partition rows appear in black with offset and mask values. Gap rows appear in grey with no offset or mask values and are labeled `gap`.
 
-In the eMMC table, the last column of each storage area indicates whether it can be written to. Green and `yes` mean the area can be written to, red and `no` mean the area absolutely cannot be written to, and yellow with a label indicates it can be written to under certain prerequisites, or only part of it can be written to.
+The last column indicates write safety: green/`yes` = writable, red/`no` = non-writable, yellow with a label = conditionally or partially writable.
 
-Using the above table as an example, the `0+4M` (`0M~4M`) area corresponding to the `bootloader` partition absolutely cannot be written to, the `32M` gap (`4M~36M`) after it can be written to, the `36M+64M` (`36M~100M`) area corresponding to the `reserved` partition absolutely cannot be written to, the gap from there to the gap before `env` (`100M~836M`) can all be written to, the 1M after `env` (`837M to the end`) can be written to in case the Android boot logo is not needed, then the writable range on eMMC is:
+Using the above table as an example, the `0+4M` (`0M~4M`) area of the `bootloader` partition is non-writable, the `32M` gap (`4M~36M`) after it is writable, the `36M+64M` (`36M~100M`) `reserved` partition is non-writable, and the gap from there to the gap before `env` (`100M~836M`) is fully writable. From 1M after `env` (`837M to the end`), the area is writable if the Android boot logo is not needed. The writable ranges on eMMC are:
 
 - 4M~36M
 - 100M~836M
 - 837M~end
 
-If the Android boot logo is needed, additionally, the 852M + 32M (`852M~884M`) area corresponding to the `logo` partition cannot be written to, then the writable range on eMMC is:
+If the Android boot logo is needed, the 852M + 32M (`852M~884M`) `logo` partition is additionally non-writable, reducing the writable ranges to:
 
 - 4M~36M
 - 100M~836M
@@ -1314,17 +1324,17 @@ elif [[ "${AMLOGIC_SOC}" == "s905x3" ]]; then
 
 ### 12.11 How to build the u-boot file
 
-The u-boot file is a crucial component for the proper startup of the system. The process of obtaining source code and the compilation workflow varies slightly for Amlogic, Allwinner, and Rockchip devices.
+The u-boot file is a crucial component for system startup. The process of obtaining source code and the compilation workflow varies slightly across Amlogic, Allwinner, and Rockchip platforms.
 
 #### 12.11.1 How to build the u-boot file for Amlogic devices
 
-Due to the fact that most manufacturers of Amlogic devices keep their source code closed, we need to extract u-boot related files from the device before proceeding with compilation. The method presented here is derived from the production tutorial shared by [unifreq](https://github.com/unifreq).
+Since most Amlogic device manufacturers keep their source code closed, u-boot related files must be extracted from the device before compilation. The method presented here is derived from the tutorial shared by [unifreq](https://github.com/unifreq).
 
 ##### 12.11.1.1 How to extract the bootloader and dtb files
 
-Extraction requires the HxD software. You can get the installation from the [official download link](https://mh-nexus.de/en/downloads.php?product=HxD20) or the [backup download link](https://github.com/ophub/kernel/releases/download/tools/HxDSetup.2.5.0.0.zip).
+Extraction requires the HxD software. Download it from the [official site](https://mh-nexus.de/en/downloads.php?product=HxD20) or the [backup link](https://github.com/ophub/kernel/releases/download/tools/HxDSetup.2.5.0.0.zip).
 
-Execute the following commands one by one in the `cmd` panel to extract the relevant files and download them to your local computer.
+Run the following commands in the `cmd` panel to extract the relevant files and download them to your local computer.
 
 ```shell
 # Use adb tool to enter the box
@@ -1348,7 +1358,7 @@ adb pull /data/local/mybox_gpio.txt C:\mybox
 
 ##### 12.11.1.2 How to create the acs.bin file
 
-The most important part of the mainline u-boot is the acs.bin, which is used to initialize part of the memory. The original factory u-boot is located at the very front of the system, at a 4MB position. Use the `bootloader.bin` file obtained just now to extract the `acs.bin` file.
+The most important part of the mainline u-boot is the acs.bin, which initializes memory. The original factory u-boot is located at the beginning of the system at the 4MB position. Use the `bootloader.bin` file obtained earlier to extract the `acs.bin` file.
 
 Open the HxD software, open the exported `bootloader.bin` file, `Right click - Select range`, start position `F200`, length `1000`, select `hexadecimal`.
 
@@ -1366,17 +1376,17 @@ If the bootloader is locked, the code in this area is garbled and useless. Norma
 
 ##### 12.11.1.3 How to build the u-boot file
 
-Creating u-boot requires source repositories https://github.com/unifreq/amlogic-boot-fip and https://github.com/unifreq/u-boot to compile two u-boot files for your device.
+Building u-boot requires the source repositories https://github.com/unifreq/amlogic-boot-fip and https://github.com/unifreq/u-boot to compile two u-boot files for your device.
 
 Within the amlogic-boot-fip source code, the only file that varies by device model is acs.bin, all other files are universal.
 
 <img width="600" alt="image" src="https://user-images.githubusercontent.com/68696949/187057209-c4716384-46ef-4922-9710-8da7ae6db1e4.png">
 
-For instructions on creating u-boot, see the specific instructions in https://github.com/unifreq/u-boot/tree/master/doc/board/amlogic, and choose your device model for compiling and testing.
+For build instructions, see the device-specific documentation at https://github.com/unifreq/u-boot/tree/master/doc/board/amlogic.
 
-Creating u-boot according to [unifreq](https://github.com/unifreq)'s method requires the use of the device's acs.bin, dts, and config files. The dts exported from the Android system cannot be directly converted into the Armbian format, so you need to write a corresponding dts file yourself. Based on the specific differences in hardware on your device, such as switches, LEDs, power control, TF card, SDIO wifi module, etc., modify and create a [dts](https://github.com/unifreq/linux-5.15.y/tree/main/arch/arm64/boot/dts/amlogic) file from the similar ones in the kernel source repository.
+Building u-boot using [unifreq](https://github.com/unifreq)'s method requires the device's acs.bin, dts, and config files. The dts exported from the Android system cannot be directly converted to Armbian format, so a corresponding dts file must be written manually. Based on your device's specific hardware differences (switches, LEDs, power control, TF card, SDIO wifi module, etc.), modify and create a [dts](https://github.com/unifreq/linux-5.15.y/tree/main/arch/arm64/boot/dts/amlogic) file from similar ones in the kernel source repository.
 
-For example, creating a u-boot for X96Max Plus:
+For example, building u-boot for X96Max Plus:
 
 ```shell
 ~/make-uboot
@@ -1410,19 +1420,19 @@ For example, creating a u-boot for X96Max Plus:
 - Download the [u-boot](https://github.com/unifreq/u-boot) source code. Create a corresponding [x96max-plus_defconfig](https://github.com/unifreq/u-boot/blob/master/configs/x96max-plus_defconfig) file and put it into the [configs](https://github.com/unifreq/u-boot/tree/master/configs) directory. Create the corresponding [meson-sm1-x96-max-plus-u-boot.dtsi](https://github.com/unifreq/u-boot/blob/master/arch/arm/dts/meson-sm1-x96-max-plus-u-boot.dtsi) and [meson-sm1-x96-max-plus.dts](https://github.com/unifreq/u-boot/blob/master/arch/arm/dts/meson-sm1-x96-max-plus.dts) files and put them in the [arch/arm/dts](https://github.com/unifreq/u-boot/tree/master/arch/arm/dts) directory, then edit the [Makefile](https://github.com/unifreq/u-boot/blob/master/arch/arm/dts/Makefile) in this directory to add the `meson-sm1-x96-max-plus.dtb` file index.
 - In the root directory of the u-boot source code, follow the steps in the document https://github.com/unifreq/u-boot/blob/master/doc/board/amlogic/x96max-plus.rst.
 
-Two types of files are ultimately generated: the `u-boot.bin` file in the u-boot root directory is an incomplete version of u-boot used in the `/boot` directory (corresponds to the [overload](https://github.com/ophub/u-boot/tree/main/u-boot/amlogic/overload) directory in the repository); the `u-boot.bin` and `u-boot.bin.sd.bin` in the `fip` directory are complete versions of u-boot files used in the `/usr/lib/u-boot/` directory (corresponds to the [bootloader](https://github.com/ophub/u-boot/tree/main/u-boot/amlogic/bootloader) directory in the repository). The complete versions of the two files differ by 512 bytes, the larger one has 512 bytes of 0 filled in front.
+Two types of files are generated: the `u-boot.bin` in the u-boot root directory is an incomplete u-boot for the `/boot` directory (corresponds to the [overload](https://github.com/ophub/u-boot/tree/main/u-boot/amlogic/overload) directory); the `u-boot.bin` and `u-boot.bin.sd.bin` in the `fip` directory are complete u-boot files for `/usr/lib/u-boot/` (corresponds to the [bootloader](https://github.com/ophub/u-boot/tree/main/u-boot/amlogic/bootloader) directory). The two complete versions differ by 512 bytes — the larger one has 512 bytes of zeros prepended.
 
 <div style="width:100%;margin-top:40px;margin:5px;">
 <img width="400" alt="image" src="https://user-images.githubusercontent.com/68696949/189039426-c127631f-77ca-4fcb-9fb6-4220045d712b.png">
 <img width="400" alt="image" src="https://user-images.githubusercontent.com/68696949/189029320-e43a4cc9-b4b5-4de4-92fe-b17bd29020d0.png">
 </div>
 
-💡 Tip: Before writing to eMMC for testing, please refer to section 12.3 for unbricking methods. Be sure to understand the short circuit point location, have the original .img format Android system file, and have performed short-circuit flashing tests. Ensure that you have mastered all the unbricking methods before proceeding with writing tests.
+💡 Tip: Before writing to eMMC for testing, review section 12.3 for recovery methods. Ensure you know the short-circuit point location, have the original .img format Android system file, and have verified the short-circuit flashing process. Master all recovery methods before proceeding.
 
 
 #### 12.11.2 How to build the u-boot file for Rockchip devices
 
-Since most manufacturers of Rockchip devices have opened up their u-boot source code, it's relatively easy to obtain the relevant u-boot source code from the manufacturer's source code repository and proceed with the compilation. Additionally, some open-source enthusiasts have also shared numerous user-friendly u-boot compilation scripts. Below, I'll provide a few examples to illustrate various compilation methods.
+Since most Rockchip device manufacturers have open-sourced their u-boot code, the relevant source code can be obtained directly from their repositories. Additionally, some open-source contributors have shared user-friendly u-boot compilation scripts. Below are several examples illustrating different compilation methods.
 
 ##### 12.11.2.1 How to use Radxa's u-boot building script
 
@@ -1457,12 +1467,12 @@ cd ~/rk3588-sdk
 └── u-boot.itb
 ```
 
-By adding more options in the `board_configs.sh` and `mk-uboot.sh` within the [radxa/build](https://github.com/radxa/build) source code, it's possible to compile u-boot files for other devices as well. For instance, you can follow the instructions provided for compiling the [Beelink-IPC-R(rk3588)](https://github.com/ophub/amlogic-s9xxx-openwrt/issues/415#issuecomment-1508234307) device.
+By adding more options in `board_configs.sh` and `mk-uboot.sh` within the [radxa/build](https://github.com/radxa/build) source code, u-boot files for other devices can also be compiled. For example, see the instructions for compiling the [Beelink-IPC-R(rk3588)](https://github.com/ophub/amlogic-s9xxx-openwrt/issues/415#issuecomment-1508234307) device.
 
 
 ##### 12.11.2.2 How to use cm9vdA's u-boot building script
 
-cm9vdA provides scripts and usage instructions for compiling u-boot and the kernel in his open-source project [cm9vdA/build-linux](https://github.com/cm9vdA/build-linux). I have utilized his project for u-boot compilation in various Rockchip devices and documented the processes for reference. Here are some excerpts:
+cm9vdA provides scripts and instructions for compiling u-boot and the kernel in his open-source project [cm9vdA/build-linux](https://github.com/cm9vdA/build-linux). The following are documented compilation processes for various Rockchip devices:
 
 - Build u-boot for Lenovo-Leez-P710 (rk3399) device: [Link](https://github.com/ophub/amlogic-s9xxx-armbian/issues/1609#issuecomment-1681494735)
 - Build u-boot for DLFR100 (rk3399) device: [Link](https://github.com/ophub/amlogic-s9xxx-armbian/issues/1522#issuecomment-1622919423)
@@ -1471,13 +1481,15 @@ cm9vdA provides scripts and usage instructions for compiling u-boot and the kern
 
 ### 12.12 Error in Memory Size Recognition
 
-If the memory size is recognized incorrectly (it is abnormal for 4G memory to be recognized as 1-2G, and it is normal to be recognized as 3.7G), you can try to manually copy a `/boot/UBOOT_OVERLOAD` file (please note it's "copy", "do not rename", as renaming it will make the system unable to boot after installation and updates). When used in `USB`, save it as `/boot/u-boot.ext`, and when used in `eMMC`, save it as `/boot/u-boot.emmc`.
+If the memory size is recognized incorrectly (4GB recognized as 1–2GB is abnormal; 3.7GB is normal), try manually copying a `/boot/UBOOT_OVERLOAD` file (note: "copy", not "rename" — renaming will prevent the system from booting after installation and updates). When used from `USB`, save it as `/boot/u-boot.ext`; when used from `eMMC`, save it as `/boot/u-boot.emmc`.
 
-Apart from trying to solve memory problems, do not manually copy the u-boot file. Incorrect addition will cause the system to fail to boot and various problems to occur.
+Do not manually copy the u-boot file for any other purpose. Incorrect u-boot files will cause boot failures and various other issues.
 
 ### 12.13 How to Decompile dtb Files
 
-Some new devices are not currently supported (or have variants), and you can try to adjust related parameters by decompiling.
+#### 12.13.1 Directly Decompile dtb Files
+
+You can directly decompile existing dtb files and adapt by adjusting related parameters.
 
 ```shell
 # Install dependencies
@@ -1492,25 +1504,37 @@ dtc -I dts -O dtb -o xxx.dtb xxx.dts
 
 # 3. Save data and reboot
 sync && reboot
-
-# 4. [Optional action] Perform testing based on requirements
-# e.g., reinstall for testing when addressing the issue mentioned in 12.16
-armbian-install
 ```
+
+#### 12.13.2 Export Full-State DTS from a Running Device (Recommended)
+
+During the adaptation and maintenance of certain devices, we may only have access to the compiled binary device tree file (.dtb), while the corresponding kernel source code (.dts) is unavailable. In such cases, it is recommended to run the following command on a properly functioning Armbian system to directly decompile and export the currently active device tree from the kernel runtime environment:
+
+```shell
+dtc -I fs -O dts /sys/firmware/devicetree/base > my_runtime.dts
+```
+
+This command extracts device tree data directly from kernel memory, producing a more accurate and complete text output than simply decompiling the static .dtb file on disk. This is because the bootloader (such as U-Boot) or system firmware dynamically modifies or injects the device tree based on actual hardware detection results during the boot phase (for example: updating bootargs boot parameters in real time, dynamically toggling the status of specific peripherals, or adjusting reg register addresses). Decompiling the static file on disk directly will not capture these runtime changes.
+
+The Runtime device tree obtained through this method represents the final applied form used by the kernel, accurately reflecting the actual topology and operational state of the hardware at the system's low level. When referencing, fixing, or re-adapting the .dts source code for the device, this file is of great reference value, making conflict troubleshooting and peripheral configuration completion more accurate and efficient.
 
 ### 12.14 How to Modify cmdline Settings
 
-In Amlogic devices, you can add/modify/delete settings in the `/boot/uEnv.txt` file. In Rockchip and Allwinner devices, you can set in the `/boot/armbianEnv.txt` file (add to `extraargs` or `extraboardargs` parameters). Devices using `/boot/extlinux/extlinux.conf` configure in this file. You need to restart after each change for it to take effect.
+In Amlogic devices, add/modify/delete settings in `/boot/uEnv.txt`. In Rockchip and Allwinner devices, configure in `/boot/armbianEnv.txt` (via the `extraargs` or `extraboardargs` parameters). Devices using `/boot/extlinux/extlinux.conf` configure in that file. A reboot is required after each change.
 
-- For instance, the `Home Assistant Supervisor` application only supports the `docker cgroup v1` version, while the currently default installed version for Docker is the latest v2. If you need to switch to the v1 version, you can add the `systemd.unified_cgroup_hierarchy=0` parameter setting in cmdline. After restarting, you can switch to the `docker cgroup v1` version.
+- For instance, `Home Assistant Supervisor` only supports `docker cgroup v1`, while the default Docker installation uses v2. To switch to v1, add `systemd.unified_cgroup_hierarchy=0` to cmdline and reboot.
 
-- By adding `max_loop=128` in cmdline, you can adjust the allowable amount of loop mounts.
+- Adding `mmc_core.max_freq=50000000` to cmdline limits the maximum frequency of eMMC to `50MHz`. The eMMC in certain S905L2 boxes is unstable at high frequencies (HS200/HS400, 100MHz+); downclocking can resolve issues such as boot failures, random crashes, read/write errors, and general instability.
 
-- By adding `usbcore.usbfs_memory_mb=1024` in cmdline, you can permanently change the USBFS memory buffer from the default `16 mb` to larger (`cat /sys/module/usbcore/parameters/usbfs_memory_mb`), improving the ability to transfer large files over USB.
+- Adding `max_loop=128` to cmdline adjusts the maximum number of loop mounts.
 
-- By adding `usbcore.usb3_disable=1` in cmdline, you can disable all USB 3.0 devices.
+- Adding `usbcore.usbfs_memory_mb=1024` to cmdline increases the USBFS memory buffer from the default `16 mb` (`cat /sys/module/usbcore/parameters/usbfs_memory_mb`), improving large USB file transfers.
 
-- By adding `extraargs=video=HDMI-A-1:1920x1080@60` in cmdline, you can force the video display mode to 1080p.
+- Adding `usbcore.usb3_disable=1` to cmdline disables all USB 3.0 devices.
+
+- Adding `usbcore.autosuspend=-1` to cmdline disables USB auto-suspend (prevents USB devices from powering down to save energy); adding `rootdelay=120` makes the system wait 120 seconds before mounting the root partition at boot (giving USB devices time to become ready); adding `mitigations=off` disables CPU vulnerability mitigations (Spectre/Meltdown), improving performance.
+
+- Adding `extraargs=video=HDMI-A-1:1920x1080@60` to cmdline forces the display to 1080p.
 
 <div style="width:100%;margin-top:40px;margin:5px;">
 <img width="700" alt="image" src="https://user-images.githubusercontent.com/68696949/216220941-47db0183-7b26-4768-81cf-2ee73d59d23e.png">
@@ -1522,21 +1546,21 @@ In Amlogic devices, you can add/modify/delete settings in the `/boot/uEnv.txt` f
 
 ### 12.15 How to Add New Supported Devices
 
-To build an Armbian system for a device, you need to use the `device configuration file`, `system file`, `u-boot file`, and `process control file`. The specific addition methods are introduced as follows:
+Building an Armbian system for a device requires a `device configuration file`, `system files`, `u-boot files`, and `process control files`. The methods for adding each are described below:
 
 #### 12.15.1 Add Device Configuration File
 
-In the configuration file [/etc/model_database.conf](../build-armbian/armbian-files/common-files/etc/model_database.conf), add the corresponding configuration information according to the device's test support status. The `BUILD` value is `yes` for some default build devices, the corresponding `BOARD` value `must be unique`, these boxes can use the default built Armbian system directly.
+In the configuration file [/etc/model_database.conf](../build-armbian/armbian-files/common-files/etc/model_database.conf), add device configuration based on its test support status. Devices with `BUILD` set to `yes` are built by default; the corresponding `BOARD` value `must be unique`. These devices can use the default Armbian system directly.
 
-The default value is `no` without packaging, these devices need to download the same `FAMILY` Armbian system when using, after writing to `USB`, you can open `USB's boot partition` on your computer, modify the `FDT dtb name` in `/boot/uEnv.txt` file, adapt to other devices in the list.
+Devices set to `no` are not packaged by default. To use them, download the Armbian system with the same `FAMILY`, write it to `USB`, open the USB boot partition on your computer, and modify the `FDT dtb name` in `/boot/uEnv.txt` to match your device.
 
 #### 12.15.2 Add System Files
 
-Common files are placed in the `build-armbian/armbian-files/common-files` directory, universally applicable across platforms.
+Common files are placed in `build-armbian/armbian-files/common-files`, shared across all platforms.
 
-Platform files are respectively placed in `build-armbian/armbian-files/platform-files/<platform>` directory, [Amlogic](../build-armbian/armbian-files/platform-files/amlogic), [Rockchip](../build-armbian/armbian-files/platform-files/rockchip), and [Allwinner](../build-armbian/armbian-files/platform-files/allwinner) share files of their respective platforms. The `bootfs` directory contains /boot partition files, and the `rootfs` directory contains Armbian system files.
+Platform-specific files are placed in `build-armbian/armbian-files/platform-files/<platform>`: [Amlogic](../build-armbian/armbian-files/platform-files/amlogic), [Rockchip](../build-armbian/armbian-files/platform-files/rockchip), and [Allwinner](../build-armbian/armbian-files/platform-files/allwinner). The `bootfs` directory contains /boot partition files, and the `rootfs` directory contains Armbian system files.
 
-If individual devices have special differential setting requirements, add an independent directory named after `BOARD` in the `build-armbian/armbian-files/different-files` directory, create `bootfs` directory as needed to add related files under system `/boot` partition, create `rootfs` directory as needed to add system files. All folder names are based on the actual path in the `Armbian` system. Used to add new files, or to override the same name files added from the common files and platform files.
+For devices with special configuration requirements, add an independent directory named after the `BOARD` in `build-armbian/armbian-files/different-files`. Create `bootfs` and `rootfs` subdirectories as needed to add files under the system's `/boot` partition or other system paths. All folder names correspond to actual paths in the Armbian system. These files can add new files or override files from common and platform directories.
 
 #### 12.15.3 Add u-boot Files
 
@@ -1546,11 +1570,11 @@ If individual devices have special differential setting requirements, add an ind
 
 During the Armbian image construction, these u-boot files will be written into the corresponding Armbian image files by the rebuild script according to the configuration in [/etc/model_database.conf](../build-armbian/armbian-files/common-files/etc/model_database.conf).
 
-For devices that can use standard U-Boot files, we highly recommend using them directly. However, for some devices, it may not be possible to compile or obtain a suitable U-Boot. If such a device can already run other Linux systems like Ubuntu, you can try a method that preserves key boot-related partitions to install Armbian or OpenWrt. Typically, the critical partitions that need to be preserved include `bootloader`, `reserved`, and `env`.
+For devices that can use standard U-Boot files, using them directly is strongly recommended. However, some devices may lack a suitable U-Boot. If such a device can already run other Linux systems like Ubuntu, you can try preserving key boot-related partitions to install Armbian or OpenWrt. The critical partitions that typically need preservation include `bootloader`, `reserved`, and `env`.
 
-These partitions can be backed up and then written back to their corresponding locations when creating a new Armbian or OpenWrt image. Once this new image, which contains the original system's boot partitions, is created, you can either write the entire image to the eMMC directly using the `dd` command or use the built-in installation tools of the respective systems. For example, you can use Armbian's `armbian-install` command or the `Amlogic Service` plugin in OpenWrt.
+These partitions can be backed up and written back to their corresponding locations when creating a new Armbian or OpenWrt image. The resulting image, containing the original system's boot partitions, can be written to eMMC directly via the `dd` command or through the built-in installation tools (e.g., Armbian's `armbian-install` or OpenWrt's `Amlogic Service` plugin).
 
-Currently, devices using this method include [oes(a311d)](https://github.com/ophub/amlogic-s9xxx-armbian/issues/2666), [oes-plus(s922x)](https://github.com/ophub/amlogic-s9xxx-armbian/issues/3029), and [oec-turbo(rk3566)](https://github.com/ophub/amlogic-s9xxx-armbian/pull/2736). We will now use the `oes(a311d)` device as an example to detail the operational procedure.
+Currently, devices using this method include [oes(a311d)](https://github.com/ophub/amlogic-s9xxx-armbian/issues/2666), [oes-plus(s922x)](https://github.com/ophub/amlogic-s9xxx-armbian/issues/3029), and [oec-turbo(rk3566)](https://github.com/ophub/amlogic-s9xxx-armbian/pull/2736). The following uses the `oes(a311d)` device as an example to detail the procedure.
 
 ##### 12.15.3.1 Check the Partition Layout
 
@@ -1585,7 +1609,7 @@ dd if=/dev/mmcblk2 of=env.bin bs=1M count=1 skip=628
 ```
 Place the backed-up files in the corresponding directory of the [u-boot](https://github.com/ophub/u-boot) repository: [u-boot/amlogic/bootloader/a311d-oes](https://github.com/ophub/u-boot/tree/main/u-boot/amlogic/bootloader/a311d-oes).
 
-You might have noticed that the reserved partition is 64MB in size, so why did we only back up 8MB? This is because on the oes(a311d) device, only the first 8MB of the reserved partition contains critical data; the subsequent 56MB is empty and does not need to be backed up. Here is how you can verify this:
+You might have noticed that the reserved partition is 64MB in size, yet only 8MB was backed up. On the oes(a311d) device, only the first 8MB contains critical data; the remaining 56MB is empty. Here is how to verify this:
 
 ```shell
 # First, back up the complete 64MB file of the reserved partition:
@@ -1606,11 +1630,11 @@ hexdump -C reserved_first_8M.bin | less
 00800000
 ```
 
-Analyzing the output, the address of the last line containing non-zero data is `0071fff0`. Starting from address `00720000`, all content is `00` (zero). The hexdump utility uses an asterisk (`*`) to indicate repeated lines, meaning everything from `00720000` to the end of the file at `00800000` (the 8MB mark) is zero. Converting the address `0x00720000` to decimal gives us `7,471,104` bytes, which is `7,471,104 / 1024 / 1024 = 7.125 MB`. Therefore, rounding up to 8MB for the backup is sufficient. Similarly, only the first 80KB of the env partition contains valid data, while the rest is blank, so we backed up only 1MB of the content.
+Analyzing the output, the address of the last line containing non-zero data is `0071fff0`. Starting from address `00720000`, all content is `00` (zero). The hexdump utility uses an asterisk (`*`) to indicate repeated lines, meaning everything from `00720000` to the end of the file at `00800000` (the 8MB mark) is zero. Converting `0x00720000` to decimal gives 7,471,104 bytes (7.125 MB). Therefore, rounding up to 8MB for the backup is sufficient. Similarly, only the first 80KB of the env partition contains valid data, so 1MB is adequate.
 
 ##### 12.15.3.3 Add a Special Partition Writing File
 
-For specific implementation details, refer to the `write_board_bootloader` function defined in the file [/etc/armbian-board-release.conf](https://github.com/ophub/amlogic-s9xxx-armbian/blob/main/build-armbian/armbian-files/different-files/a311d-oes/rootfs/etc/armbian-board-release.conf). This function is called during the image rebuild process. Additionally, this configuration file serves as a powerful device customization hub. You can not only precisely control the layout and size of image partitions using parameters like `skip_mb="700"`, but also add custom scripts to perform special operations on the kernel or other system files. In the future, all advanced, device-specific customizations will be centrally managed in this file to ensure clear, efficient, and convenient configuration.
+For implementation details, refer to the `write_board_bootloader` function in [/etc/armbian-board-release.conf](https://github.com/ophub/amlogic-s9xxx-armbian/blob/main/build-armbian/armbian-files/different-files/a311d-oes/rootfs/etc/armbian-board-release.conf). This function is called during the image rebuild process. This configuration file also serves as a powerful device customization hub — it allows precise control over image partition layout and size via parameters like `skip_mb="700"`, and supports custom scripts for kernel or system file operations. All advanced, device-specific customizations are centrally managed in this file.
 
 #### 12.15.4 Add Process Control Files
 
@@ -1618,7 +1642,7 @@ Add the corresponding `BOARD` option to `armbian_board` in the [yml workflow con
 
 ### 12.16 How to Resolve the Issue of I/O Errors While Writing to eMMC
 
-Some devices can normally boot Armbian from USB/SD/TF, but when writing to eMMC, an I/O write error is reported, such as the case in [Issues](https://github.com/ophub/amlogic-s9xxx-armbian/issues/989), with the following error message:
+Some devices can boot Armbian normally from USB/SD/TF but report I/O write errors when writing to eMMC, such as the case in [Issues](https://github.com/ophub/amlogic-s9xxx-armbian/issues/989):
 
 ```shell
 [  284.338449] I/O error, dev mmcblk2, sector 0 op 0x1:(WRITE) flags 0x800 phys_seg 1 prio class 2
@@ -1629,7 +1653,7 @@ Some devices can normally boot Armbian from USB/SD/TF, but when writing to eMMC,
 [  284.500871] Buffer I/O error on dev mmcblk2, logical block 0, lost async page write
 ```
 
-In such a situation, you can adjust the working mode speed and frequency of the dtb being used to stabilize the read and write support for storage. When using sdr mode, the frequency is twice the speed. When using ddr mode, the frequency equals the speed. For example:
+In such cases, adjust the working mode speed and frequency of the dtb to stabilize storage read/write support. In SDR mode, the frequency is twice the speed; in DDR mode, the frequency equals the speed. For example:
 
 ```shell
 sd-uhs-sdr12
@@ -1666,9 +1690,9 @@ Take the code snippet in the [dts](https://github.com/unifreq/linux-5.15.y/tree/
 };
 ```
 
-Generally, reducing the frequency of `&sd_emmc_c` from `max-frequency = <200000000>;` to `max-frequency = <100000000>;` can solve the problem. If it doesn't work, you can continue to reduce it to `50000000` for testing, and adjust `&sd_emmc_b` to set `USB/SD/TF`, you can also use `sd-uhs-sdr` to limit speed. You can modify the dts file and [compile](https://github.com/ophub/amlogic-s9xxx-armbian/tree/main/compile-kernel) to get the test file, or you can use the method introduced in `Section 12.13` to decompile and modify the existing dtb file to generate the test file. When modifying the decompiled dtb file, use hexadecimal values, where the decimal `200000000` corresponds to the hexadecimal `0xbebc200`, the decimal `100000000` corresponds to the hexadecimal `0x5f5e100`, the decimal `50000000` corresponds to the hexadecimal `0x2faf080`, and the decimal `25000000` corresponds to the hexadecimal `0x17d7840`.
+Generally, reducing the frequency of `&sd_emmc_c` from `max-frequency = <200000000>;` to `max-frequency = <100000000>;` resolves the issue. If not, try `50000000`. Adjust `&sd_emmc_b` for `USB/SD/TF` settings, and use `sd-uhs-sdr` to limit speed. Modify the dts file and [compile](https://github.com/ophub/amlogic-s9xxx-armbian/tree/main/compile-kernel) to get a test file, or use the decompilation method in `Section 12.13` to modify an existing dtb file. When modifying decompiled dtb files, use hexadecimal values: decimal `200000000` = hex `0xbebc200`, `100000000` = `0x5f5e100`, `50000000` = `0x2faf080`, `25000000` = `0x17d7840`. Alternatively, refer to the cmdline configuration method in `Section 12.14` and add the `mmc_core.max_freq=50000000` parameter to the cmdline to limit the maximum frequency of the eMMC, thereby resolving read/write errors and instability issues.
 
-In addition to solving this issue through the system software layer, it can also be resolved through [money ability](https://github.com/ophub/amlogic-s9xxx-armbian/issues/998) and [hands-on ability](https://www.right.com.cn/forum/thread-901586-1-1.html).
+In addition to software-layer solutions, this issue can also be resolved through [hardware upgrades](https://github.com/ophub/amlogic-s9xxx-armbian/issues/998) or [physical modifications](https://www.right.com.cn/forum/thread-901586-1-1.html).
 
 ### 12.17 How to Solve the Issue of No Sound in the Bullseye Version
 
@@ -1689,13 +1713,13 @@ systemctl enable sound.service
 systemctl restart sound.service
 ```
 
-Restart Armbian for testing. If the sound still doesn't work, it may be because your box is using the old conf corresponding to the sound output route. You need to comment out the new configuration corresponding to `L137-L142` in /usr/bin/g12_sound.sh (mainly for G12B, that is, S922X, before the old G12A/S905X2, and most of the SM1/S905X3 based on G12A can't be used), and then uncomment the old configuration corresponding to `L130-L134`.
+Restart Armbian for testing. If the sound still doesn't work, your device may be using an older audio output configuration. Comment out the new configuration at `L137-L142` in /usr/bin/g12_sound.sh (primarily for G12B / S922X; the older G12A/S905X2 and most SM1/S905X3 based on G12A cannot use it), and uncomment the old configuration at `L130-L134`.
 
 ### 12.18 How to build the boot.scr file
 
-In the Armbian system, the `boot.scr` file in the `/boot` directory is used for booting the system. `boot.scr` is the compiled version of the `boot.cmd` file. `boot.cmd` is the source code file for `boot.scr`. You can modify the `boot.cmd` file to make changes to the `boot.scr` file and then compile it into a `boot.scr` file using the mkimage command.
+In the Armbian system, the `boot.scr` file in `/boot` is the compiled boot script. `boot.scr` is generated from the `boot.cmd` source file. Modify `boot.cmd` to make changes, then compile it into `boot.scr` using the mkimage command.
 
-Normally, these two files do not need to be modified. If adjustments are necessary, you can follow the methods below.
+Normally, these files do not need modification. If adjustments are necessary, follow the steps below.
 
 ```shell
 # Install dependencies
@@ -1721,7 +1745,7 @@ reboot
 
 ### 12.19 How to Enable Remote Desktop and Modify the Default Port
 
-In the software center `armbian-software`, selecting `201` allows you to install a desktop. When installing the desktop, you will be asked whether to enable the remote desktop, input `y` to enable. The default port for the remote desktop is `3389`, and you can use a custom port according to your needs:
+In the software center `armbian-software`, selecting `201` installs a desktop environment. During installation, you will be prompted to enable remote desktop — enter `y` to enable. The default remote desktop port is `3389`. To use a custom port:
 
 ```shell
 sudo nano /etc/xrdp/xrdp.ini
@@ -1745,3 +1769,47 @@ net.ipv4.tcp_congestion_control = bbr
 # net.core.default_qdisc = fq_codel
 # net.ipv4.tcp_congestion_control = cubic
 ```
+
+### 12.21 How to Fix HDMI EDID Detection Problems
+
+**Use cases**: On some devices the HDMI port cannot read the EDID from the monitor (the monitor's EDID chip never answers on the DDC bus — a board-level hardware trait), so the kernel never obtains the monitor's capability list. The symptom is no display output at all, or output only at the 1024x768 fallback resolution (a typical case is bdy-g98; see [ophub/fnnas#606](https://github.com/ophub/fnnas/issues/606#issuecomment-5282389038) for details). Similarly, EDID can be lost or corrupted when using a KVM switch or an HDMI adapter/capture device; or in headless (no-monitor) setups you may want the system to always output at a fixed resolution. All of these cases can be solved by force-feeding an EDID firmware file via kernel parameters, bypassing the read from the monitor.
+
+**How it works**: The system image ships with a built-in initramfs hook that automatically bundles all EDID firmware files under `/lib/firmware/edid/` (about 30 common resolutions pre-installed) into the initramfs every time it is generated/rebuilt. The mechanism stays dormant by default — unless the kernel parameter is added, the bundled files have no effect at all.
+
+**How to enable**: Edit `/boot/armbianEnv.txt` and append to the end of the `extraargs=` line (6.x kernel example):
+
+```shell
+extraargs=video=HDMI-A-1:e drm.edid_firmware=HDMI-A-1:edid/1920x1080.bin
+```
+
+Here `video=HDMI-A-1:e` force-enables the interface (optional), and `drm.edid_firmware=` specifies the EDID file to use (path relative to `/lib/firmware/`). Three common pitfalls:
+
+- The config file may be `/boot/armbianEnv.txt`, `/boot/uEnv.txt`, or `/boot/extlinux/extlinux.conf`, etc. — modify whichever one your device actually uses.
+- **The parameter prefix depends on the kernel version**: 6.x kernels use `drm.edid_firmware`, while earlier kernels use `drm_kms_helper.edid_firmware`. If unsure, check on the device: if `/sys/module/drm/parameters/edid_firmware` exists, use the `drm.` prefix; otherwise look for the file with the same name under `/sys/module/drm_kms_helper/parameters/`. A wrong prefix is silently ignored by the kernel — no error, no effect.
+- The interface name is not necessarily `HDMI-A-1`; check the actual name on your device with `ls /sys/class/drm/ | grep HDMI`.
+
+After saving, rebuild the initramfs and reboot:
+
+```shell
+# If you see "update-initramfs: Not updating initramfs.", run this first:
+sed -i 's/^update_initramfs=.*/update_initramfs=yes/' /etc/initramfs-tools/update-initramfs.conf
+
+update-initramfs -u -k $(uname -r)
+reboot
+```
+
+**Verification**:
+
+```shell
+lsinitramfs /boot/initrd.img-$(uname -r) | grep edid   # the edid files should be visible in the initramfs
+dmesg | grep -i edid                                   # confirm the firmware was loaded by the kernel
+cat /sys/class/drm/card0-HDMI-A-1/modes                # the target resolution appears = it works
+```
+
+**Changing the resolution**: Pick another pre-installed file from the list shown by `ls /lib/firmware/edid/` (e.g. `1920x1080_50hz.bin`), point the kernel parameter at the new file name, then re-run the `update-initramfs` command above and reboot. You can also drop in a custom EDID file (a 128-byte base block, or a multi-block file with extension blocks) — the procedure is the same.
+
+**Notes**:
+
+- The pre-installed EDID files contain no CTA extension block, so **HDMI audio will not work**; if you need audio, use an EDID file with an extension block.
+- The kernel must be built with `CONFIG_DRM_LOAD_EDID_FIRMWARE=y` (already enabled in the kernels compiled from this repository).
+- To restore automatic monitor detection: remove the two parameters from `extraargs` and reboot — nothing else is needed.
